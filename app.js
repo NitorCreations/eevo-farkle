@@ -433,8 +433,9 @@ function displayAITurnHistory(turnLog, gameState, endType, bankedScore) {
     }
     
     const rollNum = i + 1;
+    const keptLabel = entry.keptDice ? ` → Kept [${entry.keptDice.join(', ')}]` : '';
     html += `<div class="insight-roll">`;
-    html += `<div class="insight-roll-header">Roll ${rollNum} — 🎲 [${entry.dice.join(', ')}] → Kept [${entry.keptDice.join(', ')}]</div>`;
+    html += `<div class="insight-roll-header">Roll ${rollNum} — 🎲 [${entry.dice.join(', ')}]${keptLabel}</div>`;
     
     if (entry.type === 'farkle') {
       html += `<div class="insight-roll-detail">No scoring combinations.</div>`;
