@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Farkle vs Eevo AI</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>🎲 Farkle vs Eevo AI</h1>
+      <p class="subtitle">Test the decision-making limits of Eevo's SystemOne model</p>
+    </header>
+
+    <main>
+      <section class="scoreboard">
+        <div class="player-score you">
+          <span class="label">You</span>
+          <span class="score" id="player-score">0</span>
+          <span class="turn-score" id="player-turn-score"></span>
+        </div>
+        <div class="vs">vs</div>
+        <div class="player-score ai">
+          <span class="label">Eevo AI</span>
+          <span class="score" id="ai-score">0</span>
+          <span class="turn-score" id="ai-turn-score"></span>
+        </div>
+      </section>
+
+      <section class="game-status">
+        <div class="status-message" id="status">Click "New Game" to start!</div>
+        <div class="target-score">First to <span id="target">10,000</span> points wins</div>
+      </section>
+
+      <section class="dice-area">
+        <div class="dice-container" id="dice-container">
+          <!-- Dice will be rendered here -->
+        </div>
+        <div class="roll-info" id="roll-info"></div>
+      </section>
+
+      <section class="controls">
+        <div class="player-controls" id="player-controls">
+          <button class="btn primary" id="btn-roll">🎲 Roll Dice</button>
+          <button class="btn" id="btn-bank" disabled>💰 Bank Points</button>
+          <button class="btn secondary" id="btn-new-game">New Game</button>
+        </div>
+      </section>
+
+      <section class="scoring-guide">
+        <details>
+          <summary>📖 Scoring Rules</summary>
+          <div class="rules-content">
+            <div class="rule"><span class="combo">Single 1</span><span class="pts">100 pts</span></div>
+            <div class="rule"><span class="combo">Single 5</span><span class="pts">50 pts</span></div>
+            <div class="rule"><span class="combo">Three 1s</span><span class="pts">1,000 pts</span></div>
+            <div class="rule"><span class="combo">Three 2s</span><span class="pts">200 pts</span></div>
+            <div class="rule"><span class="combo">Three 3s</span><span class="pts">300 pts</span></div>
+            <div class="rule"><span class="combo">Three 4s</span><span class="pts">400 pts</span></div>
+            <div class="rule"><span class="combo">Three 5s</span><span class="pts">500 pts</span></div>
+            <div class="rule"><span class="combo">Three 6s</span><span class="pts">600 pts</span></div>
+            <div class="rule"><span class="combo">Four of a kind</span><span class="pts">2× triple</span></div>
+            <div class="rule"><span class="combo">Five of a kind</span><span class="pts">4× triple</span></div>
+            <div class="rule"><span class="combo">Six of a kind</span><span class="pts">8× triple</span></div>
+            <div class="rule"><span class="combo">Straight (1-6)</span><span class="pts">1,500 pts</span></div>
+            <div class="rule"><span class="combo">Three pairs</span><span class="pts">1,500 pts</span></div>
+            <div class="rule"><span class="combo">Two triplets</span><span class="pts">2,500 pts</span></div>
+            <div class="rule hot"><span class="combo">🔥 Hot dice</span><span class="pts">All 6 scored? Roll again!</span></div>
+            <div class="rule farkle"><span class="combo">💀 Farkle</span><span class="pts">No scoring dice = lose turn points</span></div>
+          </div>
+        </details>
+      </section>
+
+      <section class="ai-insights" id="ai-insights">
+        <h3>🧠 Eevo AI Decision Insights</h3>
+        <div class="insight-content" id="insight-content">
+          <p class="muted">Eevo decision reasoning will appear here when the AI takes its turn.</p>
+        </div>
+      </section>
+
+      <section class="decision-log">
+        <h3>📊 Decision History</h3>
+        <div class="log-content" id="decision-log">
+          <p class="muted">Game decisions will be logged here.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="settings-row">
+        <label>
+          Eevo API Key:
+          <input type="password" id="api-key" placeholder="Enter your Eevo API key">
+        </label>
+        <button class="btn small" id="btn-save-key">Save</button>
+        <span class="key-status" id="key-status"></span>
+      </div>
+      <p class="credit">Built to explore <a href="https://eevo.fi" target="_blank">Eevo</a>'s decision-making capabilities</p>
+    </footer>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

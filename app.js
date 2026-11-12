@@ -1,0 +1,622 @@
+/**
+ * Farkle UI and Game Flow
+ */
+
+import { FarkleGame, findAllScoringOptions, findScoringCombinations, WINNING_SCORE } from './game.js';
+import * as eevo from './eevo.js';
+
+// DOM Elements
+const elements = {
+  playerScore: document.getElementById('player-score'),
+  aiScore: document.getElementById('ai-score'),
+  playerTurnScore: document.getElementById('player-turn-score'),
+  aiTurnScore: document.getElementById('ai-turn-score'),
+  status: document.getElementById('status'),
+  diceContainer: document.getElementById('dice-container'),
+  rollInfo: document.getElementById('roll-info'),
+  btnRoll: document.getElementById('btn-roll'),
+  btnBank: document.getElementById('btn-bank'),
+  btnNewGame: document.getElementById('btn-new-game'),
+  insightContent: document.getElementById('insight-content'),
+  decisionLog: document.getElementById('decision-log'),
+  apiKeyInput: document.getElementById('api-key'),
+  btnSaveKey: document.getElementById('btn-save-key'),
+  keyStatus: document.getElementById('key-status'),
+};
+
+// Game instance
+let game = new FarkleGame();
+let isProcessing = false;
+
+// Die face rendering (using Unicode dice)
+const dieFaces = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+
+/**
+ * Initialize the app
+ */
+function init() {
+  // Load API key
+  elements.apiKeyInput.value = eevo.getApiKey();
+  updateKeyStatus();
+  
+  // Event listeners
+  elements.btnRoll.addEventListener('click', handleRoll);
+  elements.btnBank.addEventListener('click', handleBank);
+  elements.btnNewGame.addEventListener('click', handleNewGame);
+  elements.btnSaveKey.addEventListener('click', handleSaveKey);
+  
+  // Initial UI
+  updateUI();
+  logDecision('system', 'Game ready. Click "New Game" to start!');
+}
+
+/**
+ * Update API key status display
+ */
+function updateKeyStatus() {
+  const hasKey = eevo.hasApiKey();
+  elements.keyStatus.textContent = hasKey ? '✓ Key saved' : 'Required for AI to play';
+  elements.keyStatus.className = 'key-status ' + (hasKey ? 'success' : 'error');
+}
+
+/**
+ * Save API key
+ */
+function handleSaveKey() {
+  const key = elements.apiKeyInput.value.trim();
+  if (eevo.setApiKey(key)) {
+    updateKeyStatus();
+    elements.keyStatus.textContent = key ? '✓ Key saved' : 'Key cleared';
+  }
+}
+
+/**
+ * Start a new game
+ */
+function handleNewGame() {
+  game.reset();
+  elements.decisionLog.innerHTML = '';
+  elements.insightContent.innerHTML = '<p class="muted">Eevo decision reasoning will appear here when the AI takes its turn.</p>';
+  updateUI();
+  setStatus('Your turn! Roll the dice.');
+  logDecision('system', 'New game started. First to 10,000 wins!');
+}
+
+/**
+ * Handle roll button click
+ */
+async function handleRoll() {
+  if (isProcessing || game.gameOver) return;
+  
+  // If dice are rolled and some are selected, confirm selection first before rolling
+  if (game.currentDice.length > 0 && game.getSelectedDice().length > 0) {
+    if (!confirmSelectionForRoll()) return;
+  }
+  
+  isProcessing = true;
+  elements.btnRoll.disabled = true;
+  elements.btnBank.disabled = true;
+  
+  try {
+    // Animate rolling
+    await animateRolling();
+    
+    const result = game.roll();
+    
+    if (result.type === 'farkle') {
+      renderDice(result.dice, [], true);
+      setStatus('💀 FARKLE! No scoring dice.', 'farkle');
+      logDecision('player', 'Farkle! Lost all turn points.', { dice: result.dice });
+      
+      await delay(1500);
+      game.farkle();
+      updateUI();
+      
+      // AI turn
+      if (!game.gameOver) {
+        await handleAITurn();
+      }
+    } else {
+      renderDice(result.dice);
+      updateRollInfo();
+      setStatus('Select scoring dice to keep, then roll again or bank.');
+      elements.btnBank.disabled = game.turnScore === 0;
+    }
+  } finally {
+    isProcessing = false;
+    if (!game.gameOver && game.currentPlayer === 'player') {
+      elements.btnRoll.disabled = false;
+    }
+  }
+}
+
+/**
+ * Handle bank button click
+ */
+async function handleBank() {
+  if (isProcessing || game.gameOver) return;
+  
+  // Must select dice first if there's a roll
+  const selected = game.getSelectedDice();
+  if (game.currentDice.length > 0 && selected.length === 0) {
+    setStatus('Select at least one scoring die first!');
+    return;
+  }
+  
+  // Confirm selection if dice selected
+  if (selected.length > 0) {
+    const result = game.confirmSelection();
+    if (!result.valid) {
+      setStatus(result.message);
+      return;
+    }
+  }
+  
+  const bankedScore = game.turnScore;
+  game.bank();
+  
+  logDecision('player', `Banked ${bankedScore} points`, { 
+    totalScore: game.playerScore 
+  });
+  
+  updateUI();
+  
+  if (game.gameOver) {
+    handleGameOver();
+  } else {
+    // AI turn
+    await handleAITurn();
+  }
+}
+
+/**
+ * Handle dice selection
+ */
+function handleDiceClick(index) {
+  if (isProcessing || game.gameOver || game.currentPlayer !== 'player') return;
+  if (game.currentDice.length === 0) return;
+  
+  game.selectDie(index);
+  
+  const selected = game.getSelectedDice();
+  const scoring = findScoringCombinations(selected);
+  
+  // Update dice display
+  renderDice(game.currentDice, Array.from(game.selectedIndices));
+  
+  // Update roll info
+  if (selected.length > 0) {
+    if (scoring.score > 0) {
+      const combos = scoring.combinations.map(c => c.name).join(', ');
+      elements.rollInfo.innerHTML = `Selected: <strong>+${scoring.score}</strong> (${combos})`;
+      elements.btnBank.disabled = false;
+    } else {
+      elements.rollInfo.innerHTML = '<span style="color: var(--danger)">Invalid selection - must all score</span>';
+      elements.btnBank.disabled = true;
+    }
+  } else {
+    updateRollInfo();
+    elements.btnBank.disabled = game.turnScore === 0;
+  }
+}
+
+/**
+ * Confirm dice selection and prepare for next roll
+ */
+function confirmSelectionForRoll() {
+  const selected = game.getSelectedDice();
+  if (selected.length === 0) return false;
+  
+  const result = game.confirmSelection();
+  if (!result.valid) {
+    setStatus(result.message);
+    return false;
+  }
+  
+  logDecision('player', `Kept ${selected.join(', ')} for +${result.score} points`, {
+    turnScore: game.turnScore,
+    remaining: result.remaining
+  });
+  
+  if (result.hotDice) {
+    setStatus('🔥 HOT DICE! All dice scored - roll all 6 again!');
+  }
+  
+  updateUI();
+  return true;
+}
+
+/**
+ * Handle AI turn
+ */
+async function handleAITurn() {
+  if (game.currentPlayer !== 'ai') return;
+  
+  if (!eevo.hasApiKey()) {
+    setStatus('⚠️ No Eevo API key set. Enter one in the footer to let the AI play.');
+    game.farkle();
+    return;
+  }
+  
+  isProcessing = true;
+  elements.btnRoll.disabled = true;
+  elements.btnBank.disabled = true;
+  
+  setStatus("🤖 Eevo AI is thinking...");
+  
+  try {
+    await delay(500);
+    
+    let safetyCounter = 0;
+    const MAX_AI_ROLLS = 20;
+    
+    while (game.currentPlayer === 'ai' && !game.gameOver) {
+      safetyCounter++;
+      if (safetyCounter > MAX_AI_ROLLS) {
+        console.error('AI turn safety limit reached — banking forcibly');
+        if (game.turnScore > 0) {
+          game.bank();
+        } else {
+          game.farkle();
+        }
+        break;
+      }
+      
+      // Roll dice
+      await animateRolling();
+      const rollResult = game.roll();
+      
+      if (rollResult.type === 'farkle') {
+        renderDice(rollResult.dice, [], true, true);
+        setStatus('💀 AI Farkle! Lost all turn points.');
+        logDecision('ai', 'Farkle! Lost all turn points.', { dice: rollResult.dice });
+        
+        displayAIInsight({
+          type: 'farkle',
+          message: 'No scoring dice! Lost all points accumulated this turn.',
+          dice: rollResult.dice
+        });
+        
+        await delay(2000);
+        game.farkle();
+        break;
+      }
+      
+      renderDice(rollResult.dice, [], false, true);
+      await delay(800);
+      
+      // Get scoring options
+      const options = findAllScoringOptions(rollResult.dice);
+      
+      if (options.length === 0) {
+        // Should not happen as we already checked for farkle
+        game.farkle();
+        break;
+      }
+      
+      // Make AI decision
+      setStatus("🧠 Eevo is analyzing options...");
+      let aiDecision;
+      try {
+        aiDecision = await eevo.makeAIDecision(game.getState(), options, options[0].remaining);
+      } catch (err) {
+        console.error('Eevo API error:', err);
+        logDecision('ai', `Eevo API error: ${err.message}. Turn ended.`);
+        setStatus('💥 Eevo API error — ending turn.');
+        game.farkle();
+        break;
+      }
+      
+      // Display AI insight
+      try {
+        displayAIInsight({
+          type: 'decision',
+          options,
+          decision: aiDecision,
+          gameState: game.getState()
+        });
+      } catch (err) {
+        console.error('Display AI insight error:', err);
+      }
+      
+      // Select and confirm dice
+      const selectedOpt = aiDecision.selectedOption;
+      if (!selectedOpt || !selectedOpt.dice || !selectedOpt.dice.length) {
+        console.error('AI returned invalid selectedOption:', selectedOpt);
+        logDecision('ai', 'AI returned invalid selection. Ending turn.');
+        setStatus('💥 AI returned invalid selection — ending turn.');
+        game.farkle();
+        break;
+      }
+      
+      // Highlight selected dice
+      const selectedIndices = [];
+      const diceCopy = [...rollResult.dice];
+      for (const d of selectedOpt.dice) {
+        const idx = diceCopy.findIndex((v, i) => v === d && !selectedIndices.includes(i));
+        if (idx !== -1) selectedIndices.push(idx);
+      }
+      
+      renderDice(rollResult.dice, selectedIndices, false, true);
+      await delay(1000);
+      
+      // Actually select in game state
+      for (const idx of selectedIndices) {
+        game.selectDie(idx);
+      }
+      
+      const confirmResult = game.confirmSelection();
+      
+      logDecision('ai', `Kept [${selectedOpt.dice.join(', ')}] for +${selectedOpt.score}`, {
+        turnScore: game.turnScore,
+        confidence: `${(aiDecision.diceDecision.confidence * 100).toFixed(0)}%`
+      });
+      
+      updateUI();
+      await delay(600);
+      
+      // Roll or bank decision
+      // Hot dice (all 6 scored) — must roll again regardless of what AI says
+      if (confirmResult.hotDice) {
+        setStatus('🔥 AI scored all 6 dice — must roll all 6 again!');
+        logDecision('ai', 'Hot dice! Must roll all 6 again.');
+        await delay(800);
+        continue;
+      }
+      
+      if (aiDecision.finalAction === 'bank') {
+        const bankedScore = game.turnScore;
+        game.bank();
+        
+        logDecision('ai', `Banked ${bankedScore} points`, {
+          totalScore: game.aiScore,
+          confidence: aiDecision.rollDecision ? `${(aiDecision.rollDecision.bankProbability * 100).toFixed(0)}%` : 'N/A'
+        });
+        
+        setStatus(`AI banked ${bankedScore} points!`);
+        updateUI();
+        
+        if (game.gameOver) {
+          handleGameOver();
+          return;
+        }
+        break;
+      }
+      
+      // Continue rolling
+      setStatus(`AI rolling ${confirmResult.remaining} dice...`);
+      await delay(800);
+    }
+    
+    // Player's turn
+    if (!game.gameOver && game.currentPlayer === 'player') {
+      setStatus("Your turn! Roll the dice.");
+    }
+    
+  } finally {
+    isProcessing = false;
+    if (!game.gameOver && game.currentPlayer === 'player') {
+      elements.btnRoll.disabled = false;
+    }
+    updateUI();
+  }
+}
+
+/**
+ * Display AI decision insights
+ */
+function displayAIInsight(data) {
+  let html = '';
+  
+  if (data.type === 'farkle') {
+    html = `
+      <div class="insight-item">
+        <div class="question">💀 Farkle!</div>
+        <div class="answer">Rolled [${data.dice.join(', ')}] - no scoring combinations possible.</div>
+      </div>`;
+  } else if (data.type === 'decision') {
+    const { options, decision, gameState } = data;
+    
+    html = `
+      <div class="insight-item">
+        <div class="question">📊 Current Situation</div>
+        <div class="answer">
+          AI Score: ${gameState.aiScore} | Your Score: ${gameState.playerScore}<br>
+          Turn Points: ${gameState.turnScore}
+        </div>
+      </div>
+      
+      <div class="insight-item">
+        <div class="question">🎯 Dice Selection: Which dice to keep?</div>
+        <div class="answer">
+          <strong>Chose: [${decision.selectedOption.dice.join(', ')}]</strong> (+${decision.selectedOption.score} pts)
+        </div>
+        <div class="confidence">
+          ${decision.diceDecision.probabilities?.map((p, i) => `
+            <div class="confidence-bar">
+              <span class="label">Option ${i + 1}</span>
+              <div class="bar"><div class="fill" style="width: ${p * 100}%"></div></div>
+              <span class="value">${(p * 100).toFixed(0)}%</span>
+            </div>
+          `).join('') || ''}
+        </div>
+      </div>
+      
+      <div class="insight-item">
+        <div class="question">🎲 Roll or Bank?</div>
+        <div class="answer">
+          <strong>Decision: ${decision.finalAction.toUpperCase()}</strong>
+          ${decision.rollDecision ? `<br>${decision.rollDecision.reasoning}` : ''}
+        </div>
+        ${decision.rollDecision ? `
+        <div class="confidence">
+          <div class="confidence-bar">
+            <span class="label">Bank</span>
+            <div class="bar"><div class="fill" style="width: ${decision.rollDecision.bankProbability * 100}%"></div></div>
+            <span class="value">${(decision.rollDecision.bankProbability * 100).toFixed(0)}%</span>
+          </div>
+          <div class="confidence-bar">
+            <span class="label">Roll</span>
+            <div class="bar"><div class="fill" style="width: ${decision.rollDecision.rollProbability * 100}%"></div></div>
+            <span class="value">${(decision.rollDecision.rollProbability * 100).toFixed(0)}%</span>
+          </div>
+        </div>` : ''}
+      </div>`;
+  }
+  
+  elements.insightContent.innerHTML = html;
+}
+
+/**
+ * Handle game over
+ */
+function handleGameOver() {
+  const winner = game.winner;
+  const winnerName = winner === 'player' ? 'You' : 'Eevo AI';
+  const finalScore = winner === 'player' ? game.playerScore : game.aiScore;
+  
+  setStatus(`🏆 ${winnerName} won with ${finalScore} points!`, 'win');
+  logDecision('system', `Game Over! ${winnerName} wins with ${finalScore} points!`);
+  
+  elements.btnRoll.disabled = true;
+  elements.btnBank.disabled = true;
+}
+
+/**
+ * Render dice in the container
+ */
+function renderDice(dice, selectedIndices = [], isFarkle = false, isAI = false) {
+  elements.diceContainer.innerHTML = dice.map((value, i) => {
+    const selected = selectedIndices.includes(i);
+    const classes = ['die'];
+    if (selected) classes.push('selected');
+    if (isFarkle) classes.push('locked');
+    if (isAI) classes.push('disabled');
+    
+    return `<div class="${classes.join(' ')}" data-index="${i}">${dieFaces[value]}</div>`;
+  }).join('');
+  
+  // Add click handlers for player
+  if (!isAI && !isFarkle) {
+    elements.diceContainer.querySelectorAll('.die').forEach(die => {
+      die.addEventListener('click', () => handleDiceClick(parseInt(die.dataset.index)));
+    });
+  }
+}
+
+/**
+ * Animate rolling dice
+ */
+async function animateRolling() {
+  const numDice = game.diceToRoll;
+  const frames = 8;
+  
+  for (let f = 0; f < frames; f++) {
+    const fakeDice = Array.from({ length: numDice }, () => Math.floor(Math.random() * 6) + 1);
+    elements.diceContainer.innerHTML = fakeDice.map(v => 
+      `<div class="die rolling">${dieFaces[v]}</div>`
+    ).join('');
+    await delay(80);
+  }
+}
+
+/**
+ * Update roll info display
+ */
+function updateRollInfo() {
+  if (game.currentDice.length === 0) {
+    elements.rollInfo.textContent = '';
+    return;
+  }
+  
+  const scoring = findScoringCombinations(game.currentDice);
+  const options = findAllScoringOptions(game.currentDice);
+  
+  if (options.length > 0) {
+    const maxScore = options[0].score;
+    elements.rollInfo.innerHTML = `Best possible: <strong>+${maxScore}</strong> | ${options.length} scoring option${options.length > 1 ? 's' : ''}`;
+  }
+}
+
+/**
+ * Update all UI elements
+ */
+function updateUI() {
+  elements.playerScore.textContent = game.playerScore.toLocaleString();
+  elements.aiScore.textContent = game.aiScore.toLocaleString();
+  
+  // Turn scores
+  if (game.turnScore > 0) {
+    if (game.currentPlayer === 'player') {
+      elements.playerTurnScore.textContent = `+${game.turnScore}`;
+      elements.aiTurnScore.textContent = '';
+    } else {
+      elements.aiTurnScore.textContent = `+${game.turnScore}`;
+      elements.playerTurnScore.textContent = '';
+    }
+  } else {
+    elements.playerTurnScore.textContent = '';
+    elements.aiTurnScore.textContent = '';
+  }
+  
+  // Highlight active player
+  document.querySelector('.player-score.you').classList.toggle('active', game.currentPlayer === 'player' && !game.gameOver);
+  document.querySelector('.player-score.ai').classList.toggle('active', game.currentPlayer === 'ai' && !game.gameOver);
+  
+  // Buttons
+  elements.btnRoll.disabled = game.gameOver || game.currentPlayer !== 'player' || isProcessing;
+  elements.btnBank.disabled = game.gameOver || game.currentPlayer !== 'player' || game.turnScore === 0 || isProcessing;
+  
+  // Clear dice if no current roll
+  if (game.currentDice.length === 0) {
+    elements.diceContainer.innerHTML = '<p class="muted">Roll the dice!</p>';
+    elements.rollInfo.textContent = '';
+  }
+}
+
+/**
+ * Set status message
+ */
+function setStatus(message, className = '') {
+  elements.status.textContent = message;
+  elements.status.className = 'status-message ' + className;
+}
+
+/**
+ * Log a decision to the decision history
+ */
+function logDecision(actor, action, details = {}) {
+  const time = new Date().toLocaleTimeString();
+  const detailsStr = Object.entries(details)
+    .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+    .join(' | ');
+  
+  const entry = document.createElement('div');
+  entry.className = `log-entry ${actor}`;
+  entry.innerHTML = `
+    <span class="time">${time}</span>
+    <span class="action">[${actor.toUpperCase()}] ${action}</span>
+    ${detailsStr ? `<div class="details">${detailsStr}</div>` : ''}
+  `;
+  
+  // Remove placeholder if present
+  const placeholder = elements.decisionLog.querySelector('.muted');
+  if (placeholder) placeholder.remove();
+  
+  elements.decisionLog.insertBefore(entry, elements.decisionLog.firstChild);
+  
+  // Keep log reasonable size
+  while (elements.decisionLog.children.length > 50) {
+    elements.decisionLog.removeChild(elements.decisionLog.lastChild);
+  }
+}
+
+/**
+ * Delay helper
+ */
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Initialize
+init();
