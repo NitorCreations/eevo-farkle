@@ -78,18 +78,11 @@ The AI uses Eevo's SystemOne API to evaluate game situations. For each decision 
 3. **Gets probabilistic answers** - Confidence levels for each choice
 4. **Executes decisions** - Picks the highest-confidence option
 
-The "AI Insights" panel shows:
-- Confidence percentages for each option considered
-- Why it chose to roll vs bank
-- How game state affected its decisions
+The "AI Insights" panel shows confidence percentages for each option considered and why it chose to roll vs bank.
 
-## Fallback Mode
+## Getting an API Key
 
-If no API key is provided, the game uses a simple heuristic AI:
-- Prefers keeping more dice when scores are similar
-- Banks when turn score is high and dice are low
-- Takes more risks when behind
-- Always banks if it can win
+The game requires an Eevo API key to function. Get one at [eevo.fi](https://eevo.fi) or [eevo.io](https://eevo.io).
 
 ## Files
 
