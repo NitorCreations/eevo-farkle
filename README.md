@@ -1,10 +1,10 @@
 # 🎲 Farkle vs Eevo AI
 
-A web-based Farkle dice game where you play against an AI opponent powered by [Eevo](https://eevo.fi)'s SystemOne decision-making model.
+A web-based Farkle dice game where you play against an AI opponent powered by [Eevo](https://eevo.io)'s SystemOne decision-making model.
 
 **Play it here:** https://NitorCreations.github.io/eevo-farkle/## 🎲 Farkle vs Eevo AI
 
-A web-based Farkle dice game where you play against an AI opponent powered by [Eevo](https://eevo.fi)'s SystemOne decision-making model.
+A web-based Farkle dice game where you play against an AI opponent powered by [Eevo](https://eevo.io)'s SystemOne decision-making model.
 
 ## What is This?
 
@@ -20,7 +20,7 @@ The UI provides insights into Eevo's decision-making process, showing confidence
 
 ### 1. Get an Eevo API Key
 
-Sign up at [eevo.fi](https://eevo.fi) or [eevo.io](https://eevo.io) to get your API key.
+Sign up at [eevo.io](https://eevo.io) to get your API key.
 
 ### 2. Play online (GitHub Pages)
 
@@ -82,7 +82,7 @@ The "AI Insights" panel shows confidence percentages for each option considered 
 
 ## Getting an API Key
 
-The game requires an Eevo API key to function. Get one at [eevo.fi](https://eevo.fi) or [eevo.io](https://eevo.io).
+The game requires an Eevo API key to function. Get one at [eevo.io](https://eevo.io).
 
 ## Files
 
