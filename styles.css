@@ -420,6 +420,76 @@ header h1 {
   text-align: right;
 }
 
+.confidence-bar.chosen {
+  background: rgba(99, 102, 241, 0.1);
+  border-radius: 4px;
+  padding: 4px 6px;
+  margin: 0 -6px;
+}
+
+.confidence-bar .fill.bank-fill {
+  background: var(--success);
+}
+
+.confidence-bar .fill.roll-fill {
+  background: var(--warning);
+}
+
+/* AI Turn History */
+.insight-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.insight-result {
+  font-size: 1.1rem;
+  font-weight: 600;
+  padding: 12px 16px;
+  background: var(--surface-2);
+  border-radius: 8px;
+  margin-bottom: 4px;
+}
+
+.insight-roll {
+  background: var(--surface-2);
+  border-radius: 8px;
+  padding: 12px;
+  border-left: 3px solid var(--ai-color);
+}
+
+.insight-roll-header {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.insight-roll-detail {
+  font-size: 0.9rem;
+}
+
+.insight-subsection {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin: 8px 0 4px;
+  font-weight: 500;
+}
+
+.insight-extra {
+  font-size: 0.85rem;
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+.insight-extra.chosen-bank {
+  color: var(--success);
+}
+
+.insight-extra.chosen-roll {
+  color: var(--warning);
+}
+
 /* Decision Log */
 .decision-log {
   background: var(--surface);

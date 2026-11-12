@@ -10,11 +10,13 @@
  * If you encounter CORS errors, try hosting the app locally with the included server.
  */
 
-const EEVO_API_URL = 'https://eevo.io/api/v1/systemone';
-
-// Public CORS proxy for GitHub Pages deployments (optional, uncomment if CORS is blocked):
-// const CORS_PROXY = 'https://corsproxy.io/?';
-const CORS_PROXY = ''; // Empty = direct call
+/**
+ * Determine the Eevo API URL based on the environment.
+ * - On GitHub Pages / static hosting: call directly (may need CORS proxy if Eevo doesn't support it)
+ * - Behind the local Python server: use the proxy path
+ */
+const IS_LOCAL_DEV = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '';
+const EEVO_API_URL = IS_LOCAL_DEV ? '/proxy/eevo/api/v1/systemone' : 'https://eevo.io/api/v1/systemone';
 
 // LocalStorage key for API key
 const API_KEY_STORAGE = 'farkle.eevoApiKey';
@@ -55,7 +57,7 @@ async function eevoSystemOne(state, questions) {
     questions
   };
   
-  const url = CORS_PROXY ? CORS_PROXY + encodeURIComponent(EEVO_API_URL) : EEVO_API_URL;
+  const url = EEVO_API_URL;
   
   const res = await fetch(url, {
     method: 'POST',

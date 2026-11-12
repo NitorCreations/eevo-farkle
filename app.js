@@ -244,6 +244,11 @@ async function handleAITurn() {
   
   setStatus("🤖 Eevo AI is thinking...");
   
+  // Collect all decisions this turn so we can display the full history
+  const aiTurnLog = [];
+  let turnEndType = null; // 'banked', 'farkle', 'error'
+  let turnBankedScore = 0;
+  
   try {
     await delay(500);
     
@@ -271,12 +276,13 @@ async function handleAITurn() {
         setStatus('💀 AI Farkle! Lost all turn points.');
         logDecision('ai', 'Farkle! Lost all turn points.', { dice: rollResult.dice });
         
-        displayAIInsight({
+        aiTurnLog.push({
           type: 'farkle',
-          message: 'No scoring dice! Lost all points accumulated this turn.',
-          dice: rollResult.dice
+          dice: [...rollResult.dice],
+          turnScore: game.turnScore
         });
         
+        turnEndType = 'farkle';
         await delay(2000);
         game.farkle();
         break;
@@ -303,28 +309,17 @@ async function handleAITurn() {
         console.error('Eevo API error:', err);
         logDecision('ai', `Eevo API error: ${err.message}. Turn ended.`);
         setStatus('💥 Eevo API error — ending turn.');
+        aiTurnLog.push({ type: 'error', message: err.message });
+        turnEndType = 'error';
         game.farkle();
         break;
-      }
-      
-      // Display AI insight
-      try {
-        displayAIInsight({
-          type: 'decision',
-          options,
-          decision: aiDecision,
-          gameState: game.getState()
-        });
-      } catch (err) {
-        console.error('Display AI insight error:', err);
       }
       
       // Select and confirm dice
       const selectedOpt = aiDecision.selectedOption;
       if (!selectedOpt || !selectedOpt.dice || !selectedOpt.dice.length) {
-        console.error('AI returned invalid selectedOption:', selectedOpt);
-        logDecision('ai', 'AI returned invalid selection. Ending turn.');
-        setStatus('💥 AI returned invalid selection — ending turn.');
+        aiTurnLog.push({ type: 'error', message: 'Invalid selection' });
+        turnEndType = 'error';
         game.farkle();
         break;
       }
@@ -352,6 +347,21 @@ async function handleAITurn() {
         confidence: `${(aiDecision.diceDecision.confidence * 100).toFixed(0)}%`
       });
       
+      // Record this roll's full decision data
+      aiTurnLog.push({
+        type: 'roll',
+        dice: [...rollResult.dice],
+        keptDice: [...selectedOpt.dice],
+        keptScore: selectedOpt.score,
+        cumulativeScore: game.turnScore,
+        optionsCount: options.length,
+        diceDecision: aiDecision.diceDecision,
+        rollDecision: aiDecision.rollDecision,
+        finalAction: aiDecision.finalAction,
+        remaining: confirmResult.remaining,
+        hotDice: confirmResult.hotDice
+      });
+      
       updateUI();
       await delay(600);
       
@@ -366,6 +376,7 @@ async function handleAITurn() {
       
       if (aiDecision.finalAction === 'bank') {
         const bankedScore = game.turnScore;
+        turnBankedScore = bankedScore;
         game.bank();
         
         logDecision('ai', `Banked ${bankedScore} points`, {
@@ -374,6 +385,7 @@ async function handleAITurn() {
         });
         
         setStatus(`AI banked ${bankedScore} points!`);
+        turnEndType = 'banked';
         updateUI();
         
         if (game.gameOver) {
@@ -387,6 +399,9 @@ async function handleAITurn() {
       setStatus(`AI rolling ${confirmResult.remaining} dice...`);
       await delay(800);
     }
+    
+    // Render the full AI turn history (all rolls' decisions)
+    displayAITurnHistory(aiTurnLog, game, turnEndType, turnBankedScore);
     
     // Player's turn
     if (!game.gameOver && game.currentPlayer === 'player') {
@@ -403,67 +418,104 @@ async function handleAITurn() {
 }
 
 /**
- * Display AI decision insights
+ * Display full AI turn history with every roll's decision data
  */
-function displayAIInsight(data) {
-  let html = '';
-  
-  if (data.type === 'farkle') {
-    html = `
-      <div class="insight-item">
-        <div class="question">💀 Farkle!</div>
-        <div class="answer">Rolled [${data.dice.join(', ')}] - no scoring combinations possible.</div>
-      </div>`;
-  } else if (data.type === 'decision') {
-    const { options, decision, gameState } = data;
-    
-    html = `
-      <div class="insight-item">
-        <div class="question">📊 Current Situation</div>
-        <div class="answer">
-          AI Score: ${gameState.aiScore} | Your Score: ${gameState.playerScore}<br>
-          Turn Points: ${gameState.turnScore}
-        </div>
-      </div>
-      
-      <div class="insight-item">
-        <div class="question">🎯 Dice Selection: Which dice to keep?</div>
-        <div class="answer">
-          <strong>Chose: [${decision.selectedOption.dice.join(', ')}]</strong> (+${decision.selectedOption.score} pts)
-        </div>
-        <div class="confidence">
-          ${decision.diceDecision.probabilities?.map((p, i) => `
-            <div class="confidence-bar">
-              <span class="label">Option ${i + 1}</span>
-              <div class="bar"><div class="fill" style="width: ${p * 100}%"></div></div>
-              <span class="value">${(p * 100).toFixed(0)}%</span>
-            </div>
-          `).join('') || ''}
-        </div>
-      </div>
-      
-      <div class="insight-item">
-        <div class="question">🎲 Roll or Bank?</div>
-        <div class="answer">
-          <strong>Decision: ${decision.finalAction.toUpperCase()}</strong>
-          ${decision.rollDecision ? `<br>${decision.rollDecision.reasoning}` : ''}
-        </div>
-        ${decision.rollDecision ? `
-        <div class="confidence">
-          <div class="confidence-bar">
-            <span class="label">Bank</span>
-            <div class="bar"><div class="fill" style="width: ${decision.rollDecision.bankProbability * 100}%"></div></div>
-            <span class="value">${(decision.rollDecision.bankProbability * 100).toFixed(0)}%</span>
-          </div>
-          <div class="confidence-bar">
-            <span class="label">Roll</span>
-            <div class="bar"><div class="fill" style="width: ${decision.rollDecision.rollProbability * 100}%"></div></div>
-            <span class="value">${(decision.rollDecision.rollProbability * 100).toFixed(0)}%</span>
-          </div>
-        </div>` : ''}
-      </div>`;
+function displayAITurnHistory(turnLog, gameState, endType, bankedScore) {
+  if (!turnLog.length) {
+    elements.insightContent.innerHTML = '<p class="muted">No AI decision data for this turn.</p>';
+    return;
   }
   
+  const dieFace = v => ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'][v];
+  
+  let html = `<div class="insight-summary">`;
+  
+  // Turn summary header
+  let summaryLine = '';
+  if (endType === 'banked') {
+    summaryLine = `💰 Banked <strong>${bankedScore}</strong> points (total: ${gameState.aiScore})`;
+  } else if (endType === 'farkle') {
+    summaryLine = `💀 Farkled! Lost <strong>${turnLog.find(r => r.type === 'farkle')?.turnScore || 0}</strong> points`;
+  } else if (endType === 'error') {
+    summaryLine = `💥 Error: ${turnLog.find(r => r.type === 'error')?.message || 'unknown'}`;
+  }
+  if (summaryLine) html += `<div class="insight-result">${summaryLine}</div>`;
+  
+  // Each roll
+  turnLog.forEach((entry, i) => {
+    if (entry.type === 'error') {
+      html += `<div class="insight-roll" style="border-color: var(--danger);">
+        <div class="insight-roll-header">❌ Error</div>
+        <div class="insight-roll-detail">${entry.message || 'Unknown error'}</div>
+      </div>`;
+      return;
+    }
+    
+    const rollNum = i + 1;
+    html += `<div class="insight-roll">`;
+    html += `<div class="insight-roll-header">Roll ${rollNum} — 🎲 [${entry.dice.join(', ')}] → Kept [${entry.keptDice.join(', ')}]</div>`;
+    
+    if (entry.type === 'farkle') {
+      html += `<div class="insight-roll-detail">No scoring combinations.</div>`;
+      html += `</div>`;
+      return;
+    }
+    
+    html += `<div class="insight-roll-detail">`;
+    
+    // Dice selection probabilities
+    const dd = entry.diceDecision;
+    if (dd && dd.probabilities && dd.probabilities.length) {
+      html += `<div class="insight-subsection">🎯 Dice Selection (${dd.reasoning || ''})</div>`;
+      html += `<div class="confidence">`;
+      dd.probabilities.forEach((p, j) => {
+        html += `
+          <div class="confidence-bar">
+            <span class="label">Option ${j + 1}</span>
+            <div class="bar"><div class="fill" style="width: ${p * 100}%"></div></div>
+            <span class="value">${(p * 100).toFixed(0)}%</span>
+          </div>`;
+      });
+      html += `</div>`;
+    }
+    
+    // Roll vs Bank
+    const rd = entry.rollDecision;
+    if (rd) {
+      html += `<div class="insight-subsection">🎲 Roll or Bank?</div>`;
+      html += `<div class="confidence">`;
+      
+      const bankPct = typeof rd.bankProbability === 'number' ? rd.bankProbability : 0.5;
+      const rollPct = typeof rd.rollProbability === 'number' ? rd.rollProbability : 0.5;
+      const chosen = entry.finalAction;
+      html += `
+        <div class="confidence-bar ${chosen === 'bank' ? 'chosen' : ''}">
+          <span class="label">Bank ${entry.cumulativeScore} pts</span>
+          <div class="bar"><div class="fill bank-fill" style="width: ${bankPct * 100}%"></div></div>
+          <span class="value">${(bankPct * 100).toFixed(0)}%</span>
+        </div>
+        <div class="confidence-bar ${chosen === 'roll' ? 'chosen' : ''}">
+          <span class="label">Roll ${entry.remaining} dice</span>
+          <div class="bar"><div class="fill roll-fill" style="width: ${rollPct * 100}%"></div></div>
+          <span class="value">${(rollPct * 100).toFixed(0)}%</span>
+        </div>`;
+      
+      if (entry.hotDice) {
+        html += `<div class="insight-extra">🔥 Hot dice — forced to roll all 6 again</div>`;
+      } else if (chosen === 'bank') {
+        html += `<div class="insight-extra chosen-bank">✅ Chose to bank</div>`;
+      } else {
+        html += `<div class="insight-extra chosen-roll">🔄 Chose to roll — ${rd.reasoning || ''}</div>`;
+      }
+      
+      html += `</div>`;
+    }
+    
+    html += `</div>`; // insight-roll-detail
+    html += `</div>`; // insight-roll
+  });
+  
+  html += `</div>`; // insight-summary
   elements.insightContent.innerHTML = html;
 }
 
