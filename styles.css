@@ -582,7 +582,7 @@ footer {
   border-radius: 6px;
   color: var(--text);
   font-size: 0.9rem;
-  width: 220px;
+  width: 280px;
 }
 
 .key-status {
@@ -590,7 +590,6 @@ footer {
 }
 
 .key-status.success { color: var(--success); }
-.key-status.error { color: var(--danger); }
 
 .credit {
   font-size: 0.85rem;

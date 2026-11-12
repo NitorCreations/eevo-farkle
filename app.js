@@ -20,7 +20,6 @@ const elements = {
   insightContent: document.getElementById('insight-content'),
   decisionLog: document.getElementById('decision-log'),
   apiKeyInput: document.getElementById('api-key'),
-  btnSaveKey: document.getElementById('btn-save-key'),
   keyStatus: document.getElementById('key-status'),
 };
 
@@ -35,15 +34,13 @@ const dieFaces = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
  * Initialize the app
  */
 function init() {
-  // Load API key
-  elements.apiKeyInput.value = eevo.getApiKey();
   updateKeyStatus();
   
   // Event listeners
   elements.btnRoll.addEventListener('click', handleRoll);
   elements.btnBank.addEventListener('click', handleBank);
   elements.btnNewGame.addEventListener('click', handleNewGame);
-  elements.btnSaveKey.addEventListener('click', handleSaveKey);
+  elements.apiKeyInput.addEventListener('input', handleKeyInput);
   
   // Initial UI
   updateUI();
@@ -55,19 +52,16 @@ function init() {
  */
 function updateKeyStatus() {
   const hasKey = eevo.hasApiKey();
-  elements.keyStatus.textContent = hasKey ? '✓ Key saved' : 'Required for AI to play';
-  elements.keyStatus.className = 'key-status ' + (hasKey ? 'success' : 'error');
+  elements.keyStatus.textContent = hasKey ? '✓ Key set' : 'Enter key above';
+  elements.keyStatus.className = 'key-status ' + (hasKey ? 'success' : '');
 }
 
 /**
- * Save API key
+ * Set API key on input (in-memory only, not persisted)
  */
-function handleSaveKey() {
-  const key = elements.apiKeyInput.value.trim();
-  if (eevo.setApiKey(key)) {
-    updateKeyStatus();
-    elements.keyStatus.textContent = key ? '✓ Key saved' : 'Key cleared';
-  }
+function handleKeyInput() {
+  eevo.setApiKey(elements.apiKeyInput.value.trim());
+  updateKeyStatus();
 }
 
 /**

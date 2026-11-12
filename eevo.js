@@ -18,36 +18,22 @@
 const IS_LOCAL_DEV = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '';
 const EEVO_API_URL = IS_LOCAL_DEV ? '/proxy/eevo/api/v1/systemone' : 'https://eevo.io/api/v1/systemone';
 
-// LocalStorage key for API key
-const API_KEY_STORAGE = 'farkle.eevoApiKey';
-
-export function getApiKey() {
-  try {
-    return localStorage.getItem(API_KEY_STORAGE) || '';
-  } catch {
-    return '';
-  }
-}
+// In-memory API key — never persisted
+let currentApiKey = '';
 
 export function setApiKey(key) {
-  try {
-    localStorage.setItem(API_KEY_STORAGE, key);
-    return true;
-  } catch {
-    return false;
-  }
+  currentApiKey = key;
 }
 
 export function hasApiKey() {
-  return !!getApiKey();
+  return !!currentApiKey;
 }
 
 /**
  * Call Eevo SystemOne API
  */
 async function eevoSystemOne(state, questions) {
-  const apiKey = getApiKey();
-  if (!apiKey) {
+  if (!currentApiKey) {
     throw new Error('No Eevo API key configured');
   }
   
@@ -63,7 +49,7 @@ async function eevoSystemOne(state, questions) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
+      'Authorization': `Bearer ${currentApiKey}`
     },
     body: JSON.stringify(payload)
   });
