@@ -6,9 +6,26 @@
  * - Must score at least one die each roll or "Farkle" (lose turn points)
  * - Can bank points at any time after scoring
  * - "Hot dice": if all 6 dice score, player can roll all 6 again
+ * 
+ * Relics (rogue-lite modifiers chosen per run):
+ * - "Momentum": each consecutive banked turn adds +10% to the value of banked
+ *   points. A farkle resets the streak. Both players benefit from their own streak.
  */
 
 export const WINNING_SCORE = 10000;
+
+// +10% per consecutive banked turn, applied to banked score
+export const MOMENTUM_INCREMENT = 0.10;
+
+// List of active relics (future: expand for synergy)
+export const ACTIVE_RELICS = {
+  momentum: {
+    id: 'momentum',
+    name: 'Momentum',
+    emoji: '⏩',
+    description: 'Each consecutive banked turn adds +10% to the points you bank. A farkle resets your streak. Your momentum does not affect the opponent.',
+  },
+};
 
 // Scoring combinations
 export const SCORING = {
@@ -239,6 +256,29 @@ export class FarkleGame {
     this.gameOver = false;
     this.winner = null;
     this.diceToRoll = 6;
+    
+    // Relic: Momentum streak (consecutive banked turns without a farkle)
+    this.playerStreak = 0;
+    this.aiStreak = 0;
+    // Captured momentum bonus applied to the most recent bank (for display)
+    this.lastMomentumBonus = { player: 0, ai: 0 };
+  }
+  
+  /**
+   * Current momentum multiplier for a player, based on their current streak.
+   * streak 0 → 1.0, streak 1 → 1.10, streak 2 → 1.20, ...
+   */
+  momentumMultiplier(player) {
+    const streak = player === 'player' ? this.playerStreak : this.aiStreak;
+    return 1 + streak * MOMENTUM_INCREMENT;
+  }
+  
+  /**
+   * Current momentum bonus percentage for a player (0 = no bonus, 50 = +50%).
+   */
+  momentumBonus(player) {
+    const streak = player === 'player' ? this.playerStreak : this.aiStreak;
+    return streak * MOMENTUM_INCREMENT * 100;
   }
   
   roll() {
@@ -299,11 +339,23 @@ export class FarkleGame {
   bank() {
     if (this.turnScore === 0) return false;
     
+    // Apply momentum multiplier to banked points
+    const multiplier = this.momentumMultiplier(this.currentPlayer);
+    const effectiveBank = Math.round(this.turnScore * multiplier);
+    const bonus = (multiplier - 1) * this.turnScore;
+    
     if (this.currentPlayer === 'player') {
-      this.playerScore += this.turnScore;
+      this.playerScore += effectiveBank;
+      this.lastMomentumBonus.player = bonus;
+      this.playerStreak++;
     } else {
-      this.aiScore += this.turnScore;
+      this.aiScore += effectiveBank;
+      this.lastMomentumBonus.ai = bonus;
+      this.aiStreak++;
     }
+    
+    const streak = this.currentPlayer === 'player' ? this.playerStreak : this.aiStreak;
+    const result = { banked: effectiveBank, bonus, streak };
     
     // Check for win
     const finalScore = this.currentPlayer === 'player' ? this.playerScore : this.aiScore;
@@ -313,10 +365,17 @@ export class FarkleGame {
     }
     
     this.endTurn();
-    return true;
+    return result;
   }
   
   farkle() {
+    // Reset momentum streak for the player who farkled
+    if (this.currentPlayer === 'player') {
+      this.playerStreak = 0;
+    } else {
+      this.aiStreak = 0;
+    }
+    
     this.turnScore = 0;
     this.endTurn();
   }
@@ -343,7 +402,11 @@ export class FarkleGame {
       selectedIndices: new Set(this.selectedIndices),
       diceToRoll: this.diceToRoll,
       gameOver: this.gameOver,
-      winner: this.winner
+      winner: this.winner,
+      // Relic: Momentum state
+      playerStreak: this.playerStreak,
+      aiStreak: this.aiStreak,
+      lastMomentumBonus: { ...this.lastMomentumBonus },
     };
   }
 }

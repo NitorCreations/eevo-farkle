@@ -69,13 +69,23 @@ async function eevoSystemOne(state, questions) {
  * Build game state description for Eevo
  */
 function buildStateDescription(gameState, options) {
-  const { playerScore, aiScore, turnScore, currentDice } = gameState;
+  const { playerScore, aiScore, turnScore, currentDice, playerStreak, aiStreak } = gameState;
   const target = 10000;
   
   const diceStr = currentDice.join(', ');
   const optionsStr = options.map((opt, i) => 
     `Option ${i + 1}: Keep [${opt.dice.join(', ')}] for ${opt.score} points, ${opt.remaining} dice left to roll`
   ).join('\n');
+  
+  // Momentum relic context (this prompt is built for the AI's decision-making)
+  const yourStreak = aiStreak || 0;
+  const oppStreak = playerStreak || 0;
+  const yourMult = 1 + yourStreak * 0.10;
+  const momentumLine = `
+MOMENTUM RELIC ACTIVE:
+- Each consecutive banked turn adds +10%. A farkle resets it.
+- Your current streak: ${yourStreak} consecutive banks (next bank earns ${(yourMult).toFixed(2)}x, i.e. +${yourStreak * 10}%)
+- Opponent's streak: ${oppStreak} consecutive banks`;
   
   return `You are playing Farkle, a dice game. First to ${target} points wins.
 
@@ -87,8 +97,9 @@ CURRENT SITUATION:
 
 SCORING OPTIONS:
 ${optionsStr}
+${momentumLine}
 
-FARKLE RISK: If you roll and get no scoring dice, you lose ALL points from this turn (currently ${turnScore} + whatever you keep).
+FARKLE RISK: If you roll and get no scoring dice, you lose ALL points from this turn (currently ${turnScore} + whatever you keep) AND reset your momentum streak (losing the bonus).
 
 KEY CONSIDERATIONS:
 - More dice = more chances to score, but also more risk of farkle
@@ -170,17 +181,28 @@ export async function askRollOrBank(gameState, diceRemaining) {
   const potentialTotal = aiScore + turnScore;
   const couldWin = potentialTotal >= target;
   
+  // Momentum relic: the AI is the one making this decision
+  const streak = gameState.aiStreak || 0;
+  const bonusMult = 1 + streak * 0.10;
+  const bankedWithMomentum = Math.round(turnScore * bonusMult);
+  const momentumLine = `
+MOMENTUM RELIC ACTIVE:
+- Your momentum streak: ${streak} consecutive banks
+- Banking now: ${turnScore} × ${bonusMult.toFixed(2)} = ${bankedWithMomentum} effective points
+- A farkle would reset your streak to 0 (losing the ${streak * 10}% bonus)`;
+  
   const state = `You are playing Farkle. First to ${target} points wins.
 
 CURRENT SITUATION:
 - Your score: ${aiScore} points
 - Opponent score: ${playerScore} points  
 - Points accumulated this turn: ${turnScore}
-- Your potential total if you bank now: ${potentialTotal}
+- Your potential total if you bank now: ${potentialTotal} (${bankedWithMomentum} with momentum)
 - Dice available to roll: ${diceRemaining}
 ${couldWin ? '\n⚠️ BANKING NOW WOULD WIN THE GAME!' : ''}
+${momentumLine}
 
-DECISION: Should you roll ${diceRemaining} dice (risking farkle and losing ${turnScore} points) or bank your ${turnScore} points safely?
+DECISION: Should you roll ${diceRemaining} dice (risking farkle and losing ${turnScore} points plus your streak) or bank your ${turnScore} points safely?
 
 FARKLE PROBABILITIES (approximate):
 - 1 die: ~67% farkle chance
@@ -193,10 +215,10 @@ FARKLE PROBABILITIES (approximate):
   const questions = {
     roll_or_bank: {
       type: 'score',
-      instructions: `Should you roll again or bank your points? Consider: your lead/deficit, points at risk, dice remaining, and whether banking would win.`,
+      instructions: `Should you roll again or bank your points? Consider: your lead/deficit, points at risk, dice remaining, momentum streak (farkle resets it), and whether banking would win.`,
       criteria: [
-        `BANK: Secure ${turnScore} points (total: ${potentialTotal})${couldWin ? ' - THIS WINS THE GAME' : ''}`,
-        `ROLL: Risk ${turnScore} points for potential gain with ${diceRemaining} dice`
+        `BANK: Secure ${turnScore} points (${bankedWithMomentum} with momentum)${couldWin ? ' - THIS WINS THE GAME' : ''}`,
+        `ROLL: Risk ${turnScore} points AND your momentum streak for potential gain with ${diceRemaining} dice`
       ]
     }
   };

@@ -91,6 +91,105 @@ header h1 {
 
 .key-status.success { color: var(--success); }
 
+/* Relics Bar */
+.relics-bar {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.relic-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border: 2px solid var(--ai-color);
+  border-radius: 12px;
+  cursor: help;
+}
+
+.relic-emoji {
+  font-size: 1.6rem;
+}
+
+.relic-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.relic-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--ai-color);
+}
+
+.relic-streaks {
+  display: flex;
+  gap: 14px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.relic-player b {
+  color: var(--text);
+  transition: color 0.3s;
+}
+
+.relic-player b.player-momentum-active { color: var(--success); }
+.relic-player b.ai-momentum-active { color: var(--success); }
+
+/* Momentum percentage change animation */
+.relic-player b.pop {
+  animation: momentum-pop 0.6s ease;
+}
+
+@keyframes momentum-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.4); color: var(--warning); }
+  100% { transform: scale(1); }
+}
+
+/* Hover tooltip */
+.relic-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  top: 110%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 220px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 20;
+  transition: opacity 0.2s, visibility 0.2s;
+  font-size: 0.85rem;
+  pointer-events: none;
+  text-align: left;
+}
+
+.relic-card:hover .relic-tooltip,
+.relic-card:focus .relic-tooltip {
+  visibility: visible;
+  opacity: 1;
+}
+
+.relic-tooltip p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.relic-tooltip b {
+  color: var(--ai-color);
+}
+
 /* Scoreboard */
 .scoreboard {
   display: flex;

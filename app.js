@@ -2,7 +2,7 @@
  * Farkle UI and Game Flow
  */
 
-import { FarkleGame, findAllScoringOptions, findScoringCombinations, WINNING_SCORE } from './game.js';
+import { FarkleGame, findAllScoringOptions, findScoringCombinations, WINNING_SCORE, ACTIVE_RELICS, MOMENTUM_INCREMENT } from './game.js';
 import * as eevo from './eevo.js';
 
 // DOM Elements
@@ -20,6 +20,8 @@ const elements = {
   insightContent: document.getElementById('insight-content'),
   decisionLog: document.getElementById('decision-log'),
   apiKeyInput: document.getElementById('api-key'),
+  playerMomentum: document.getElementById('player-momentum'),
+  aiMomentum: document.getElementById('ai-momentum'),
 };
 
 // Game instance
@@ -56,6 +58,7 @@ function handleKeyInput() {
  */
 function handleNewGame() {
   game.reset();
+  prevMomentum = { player: null, ai: null };
   elements.decisionLog.innerHTML = '';
   elements.insightContent.innerHTML = '<p class="muted">Eevo decision reasoning will appear here after the AI takes its turn.</p>';
   updateUI();
@@ -134,10 +137,16 @@ async function handleBank() {
   }
   
   const bankedScore = game.turnScore;
-  game.bank();
+  const bankResult = game.bank();
   
-  logDecision('player', `Banked ${bankedScore} points`, { 
-    totalScore: game.playerScore 
+  // bankResult now includes momentum bonus & streak info
+  const momentumInfo = bankResult && bankResult.bonus > 0
+    ? `momentum bonus: +${Math.round(bankResult.bonus)} (streak ${bankResult.streak})`
+    : `streak: ${bankResult ? bankResult.streak : 0}`;
+  
+  logDecision('player', `Banked ${bankResult ? bankResult.banked : bankedScore} points (${bankedScore} + momentum)`, {
+    totalScore: game.playerScore,
+    momentum: momentumInfo,
   });
   
   updateUI();
@@ -214,8 +223,9 @@ async function handleAITurn() {
   if (game.currentPlayer !== 'ai') return;
   
   if (!eevo.hasApiKey()) {
-    setStatus('⚠️ No Eevo API key set. Enter one in the footer to let the AI play.');
+    setStatus('⚠️ No Eevo API key set. Enter one in the top bar to let the AI play.');
     game.farkle();
+    updateUI();
     return;
   }
   
@@ -357,15 +367,20 @@ async function handleAITurn() {
       
       if (aiDecision.finalAction === 'bank') {
         const bankedScore = game.turnScore;
-        turnBankedScore = bankedScore;
-        game.bank();
+        const bankResult = game.bank();
+        turnBankedScore = bankResult ? bankResult.banked : bankedScore;
         
-        logDecision('ai', `Banked ${bankedScore} points`, {
+        const momentumInfo = bankResult && bankResult.bonus > 0
+          ? `momentum bonus: +${Math.round(bankResult.bonus)} (streak ${bankResult.streak})`
+          : `streak: ${bankResult ? bankResult.streak : 0}`;
+        
+        logDecision('ai', `Banked ${bankResult ? bankResult.banked : bankedScore} points (${bankedScore} + momentum)`, {
           totalScore: game.aiScore,
+          momentum: momentumInfo,
           confidence: aiDecision.rollDecision ? `${(aiDecision.rollDecision.bankProbability * 100).toFixed(0)}%` : 'N/A'
         });
         
-        setStatus(`AI banked ${bankedScore} points!`);
+        setStatus(`AI banked ${bankResult ? bankResult.banked : bankedScore} points!`);
         turnEndType = 'banked';
         updateUI();
         
@@ -472,11 +487,17 @@ function displayAITurnHistory(turnLog, gameState, endType, bankedScore) {
       const bankPct = typeof rd.bankProbability === 'number' ? rd.bankProbability : 0.5;
       const rollPct = typeof rd.rollProbability === 'number' ? rd.rollProbability : 0.5;
       const chosen = entry.finalAction;
+      // Show the momentum-adjusted bank value (streak at decision + this bank = next bonus)
+      const streakForBank = game.aiStreak; // current AI streak before this bank
+      const momentumDisplay = streakForBank > 0
+        ? `<span class="option-desc">(×${(1 + streakForBank * 0.10).toFixed(2)} moment.)</span>`
+        : '';
       html += `
         <div class="confidence-bar ${chosen === 'bank' ? 'chosen' : ''}">
           <span class="label">Bank ${entry.cumulativeScore} pts</span>
           <div class="bar"><div class="fill bank-fill" style="width: ${bankPct * 100}%"></div></div>
           <span class="value">${(bankPct * 100).toFixed(0)}%</span>
+          ${momentumDisplay}
         </div>
         <div class="confidence-bar ${chosen === 'roll' ? 'chosen' : ''}">
           <span class="label">Roll ${entry.remaining} dice</span>
@@ -608,6 +629,44 @@ function updateUI() {
     elements.diceContainer.innerHTML = '<p class="muted">Roll the dice!</p>';
     elements.rollInfo.textContent = '';
   }
+  
+  // Relic: Momentum display
+  renderMomentum();
+}
+
+/**
+ * Track previous momentum values to trigger pop animation on change
+ */
+let prevMomentum = { player: null, ai: null };
+
+/**
+ * Render the Momentum relic percentages with change animation.
+ */
+function renderMomentum() {
+  const pBonus = game.momentumBonus('player');
+  const aBonus = game.momentumBonus('ai');
+  
+  elements.playerMomentum.textContent = pBonus > 0 ? `+${pBonus}%` : '+0%';
+  elements.aiMomentum.textContent = aBonus > 0 ? `+${aBonus}%` : '+0%';
+  
+  // Highlight active streaks
+  elements.playerMomentum.classList.toggle('player-momentum-active', pBonus > 0);
+  elements.aiMomentum.classList.toggle('ai-momentum-active', aBonus > 0);
+  
+  // Pop animation when a value increases
+  if (prevMomentum.player !== null && pBonus > prevMomentum.player) {
+    elements.playerMomentum.classList.remove('pop');
+    void elements.playerMomentum.offsetWidth; // reflow to restart animation
+    elements.playerMomentum.classList.add('pop');
+  }
+  if (prevMomentum.ai !== null && aBonus > prevMomentum.ai) {
+    elements.aiMomentum.classList.remove('pop');
+    void elements.aiMomentum.offsetWidth;
+    elements.aiMomentum.classList.add('pop');
+  }
+  
+  prevMomentum.player = pBonus;
+  prevMomentum.ai = aBonus;
 }
 
 /**
