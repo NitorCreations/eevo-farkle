@@ -20,7 +20,6 @@ const elements = {
   insightContent: document.getElementById('insight-content'),
   decisionLog: document.getElementById('decision-log'),
   apiKeyInput: document.getElementById('api-key'),
-  keyStatus: document.getElementById('key-status'),
 };
 
 // Game instance
@@ -34,8 +33,6 @@ const dieFaces = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
  * Initialize the app
  */
 function init() {
-  updateKeyStatus();
-  
   // Event listeners
   elements.btnRoll.addEventListener('click', handleRoll);
   elements.btnBank.addEventListener('click', handleBank);
@@ -48,20 +45,10 @@ function init() {
 }
 
 /**
- * Update API key status display
- */
-function updateKeyStatus() {
-  const hasKey = eevo.hasApiKey();
-  elements.keyStatus.textContent = hasKey ? '✓ Key set' : 'Enter key above';
-  elements.keyStatus.className = 'key-status ' + (hasKey ? 'success' : '');
-}
-
-/**
  * Set API key on input (in-memory only, not persisted)
  */
 function handleKeyInput() {
   eevo.setApiKey(elements.apiKeyInput.value.trim());
-  updateKeyStatus();
 }
 
 /**
