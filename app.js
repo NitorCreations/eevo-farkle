@@ -76,7 +76,7 @@ function handleSaveKey() {
 function handleNewGame() {
   game.reset();
   elements.decisionLog.innerHTML = '';
-  elements.insightContent.innerHTML = '<p class="muted">Eevo decision reasoning will appear here when the AI takes its turn.</p>';
+  elements.insightContent.innerHTML = '<p class="muted">Eevo decision reasoning will appear here after the AI takes its turn.</p>';
   updateUI();
   setStatus('Your turn! Roll the dice.');
   logDecision('system', 'New game started. First to 10,000 wins!');
@@ -469,11 +469,13 @@ function displayAITurnHistory(turnLog, gameState, endType, bankedScore) {
       html += `<div class="insight-subsection">🎯 Dice Selection (${dd.reasoning || ''})</div>`;
       html += `<div class="confidence">`;
       dd.probabilities.forEach((p, j) => {
+        const optLabel = dd.options?.[j] || `Option ${j + 1}`;
         html += `
           <div class="confidence-bar">
-            <span class="label">Option ${j + 1}</span>
+            <span class="label" title="${optLabel}">Option ${j + 1}</span>
             <div class="bar"><div class="fill" style="width: ${p * 100}%"></div></div>
             <span class="value">${(p * 100).toFixed(0)}%</span>
+            <span class="option-desc">${optLabel}</span>
           </div>`;
       });
       html += `</div>`;

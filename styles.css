@@ -427,6 +427,16 @@ header h1 {
   margin: 0 -6px;
 }
 
+.confidence-bar .option-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-left: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
 .confidence-bar .fill.bank-fill {
   background: var(--success);
 }
