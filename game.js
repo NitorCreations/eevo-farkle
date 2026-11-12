@@ -29,7 +29,7 @@ export const ACTIVE_RELICS = {
     id: 'hotHand',
     name: 'Hot Hand',
     emoji: '🔥',
-    description: 'When you score all 6 dice (hot dice), your current turn score is tripled instead of just rerolling. Chasing it with few dice left is tempting!',
+    description: 'When you score all 6 dice (hot dice), your current turn score is doubled instead of just rerolling. Chasing it with few dice left is tempting!',
   },
 };
 
@@ -268,7 +268,7 @@ export class FarkleGame {
     this.aiStreak = 0;
     // Captured momentum bonus applied to the most recent bank (for display)
     this.lastMomentumBonus = { player: 0, ai: 0 };
-    // Relic: Hot Hand — number of times turn score was tripled this turn
+    // Relic: Hot Hand — number of times turn score was doubled this turn
     this.hotHandCount = 0;
     // Capture last hot-hand bonus for display
     this.lastHotHandBonus = 0;
@@ -342,10 +342,10 @@ export class FarkleGame {
     
     // Trigger: all 6 dice scored (hot dice)
     if (remaining === 0) {
-      // Hot Hand relic: triple the score accumulated since the last hot hand
+      // Hot Hand relic: double the score accumulated since the last hot hand
       // (i.e. the current "segment"), not the whole turn.
-      // segmentScore already includes this roll's score; add 2x more to make it 3x.
-      const hotHandBonus = this.segmentScore * 2;
+      // segmentScore already includes this roll's score; add 1x more to make it 2x.
+      const hotHandBonus = this.segmentScore * 1;
       this.turnScore += hotHandBonus;
       this.hotHandCount++;
       this.segmentScore = 0; // reset for the next segment (fresh 6-dice roll)

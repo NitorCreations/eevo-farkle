@@ -90,7 +90,7 @@ MOMENTUM RELIC ACTIVE:
   // Hot Hand relic context
   const hotHandLine = `
 HOT HAND RELIC ACTIVE:
-- If you score ALL 6 dice in one roll, the points you scored since your previous hot hand (this "segment") are TRIPLED.
+- If you score ALL 6 dice in one roll, the points you scored since your previous hot hand (this "segment") are DOUBLED.
 - You've already triggered hot dice ${hotHandCount || 0} times this turn.
 - This makes keeping most of the dice (to leave few to reroll for a hot hand) very valuable.`;
 
@@ -114,7 +114,7 @@ KEY CONSIDERATIONS:
 - 1s and 5s always score individually
 - Three of a kind and better combos are valuable
 - If you're behind, you may need to take more risks
-- "Hot dice" (scoring all 6 dice) triples your turn with Hot Hand
+- "Hot dice" (scoring all 6 dice) doubles your turn with Hot Hand
 - "Farkle" (no scoring dice) resets momentum AND loses the turn`;
 }
 
@@ -201,9 +201,9 @@ MOMENTUM RELIC ACTIVE:
 - A farkle would reset your streak to 0 (losing the ${streak * 10}% bonus)
 
 HOT HAND RELIC ACTIVE:
-- Scoring ALL 6 dice triples the points you've scored since your last hot hand (this "segment").
+- Scoring ALL 6 dice doubles the points you've scored since your last hot hand (this "segment").
 - Current segment score: ${gameState.segmentScore || 0} points (leftover to reroll: ${diceRemaining}).
-- If you score all ${diceRemaining} dice, that segment is tripled.`;
+- If you score all ${diceRemaining} dice, that segment is doubled.`;
 
   const state = `You are playing Farkle. First to ${target} points wins.
 
@@ -218,7 +218,7 @@ ${momentumLine}
 
 DECISION: Should you roll ${diceRemaining} dice (risking farkle and losing ${turnScore} points plus your streak) or bank your ${turnScore} points safely?
 
-HOT HAND NOTE: If you score all ${diceRemaining} dice, the points you've scored since your last hot hand (this segment, currently ${gameState.segmentScore || 0}) are TRIPLED. This makes rolling chancy low-count dice much more valuable.
+HOT HAND NOTE: If you score all ${diceRemaining} dice, the points you've scored since your last hot hand (this segment, currently ${gameState.segmentScore || 0}) are DOUBLED. This makes rolling chancy low-count dice much more valuable.
 
 FARKLE PROBABILITIES (approximate):
 - 1 die: ~67% farkle chance
@@ -231,10 +231,10 @@ FARKLE PROBABILITIES (approximate):
   const questions = {
     roll_or_bank: {
       type: 'score',
-      instructions: `Should you roll again or bank your points? Consider: your lead/deficit, points at risk, dice remaining, momentum streak (farkle resets it), and the triple (x3) Hot Hand payout on your current segment for scoring all remaining dice.`,
+      instructions: `Should you roll again or bank your points? Consider: your lead/deficit, points at risk, dice remaining, momentum streak (farkle resets it), and the double (x2) Hot Hand payout on your current segment for scoring all remaining dice.`,
       criteria: [
         `BANK: Secure ${turnScore} points (${bankedWithMomentum} with momentum)${couldWin ? ' - THIS WINS THE GAME' : ''}`,
-        `ROLL: Risk ${turnScore} points AND your momentum streak to TRIPLE (x3) your current segment (${gameState.segmentScore || 0} pts) by scoring all ${diceRemaining} dice`
+        `ROLL: Risk ${turnScore} points AND your momentum streak to DOUBLE (x2) your current segment (${gameState.segmentScore || 0} pts) by scoring all ${diceRemaining} dice`
       ]
     }
   };

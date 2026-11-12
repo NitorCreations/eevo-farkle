@@ -211,8 +211,8 @@ function confirmSelectionForRoll() {
   
   if (result.hotDice) {
     if (result.hotHandBonus > 0) {
-      setStatus(`🔥 HOT HAND! +${result.hotHandBonus} bonus (${result.score} worth tripled) — roll all 6 again!`);
-      logDecision('player', `🔥 Hot Hand! ${result.score} tripled to +${result.score * 3} this segment`);
+      setStatus(`🔥 HOT HAND! +${result.hotHandBonus} bonus (${result.score} worth doubled) — roll all 6 again!`);
+      logDecision('player', `🔥 Hot Hand! ${result.score} doubled to +${result.score * 2} this segment`);
     } else {
       setStatus('🔥 HOT DICE! All dice scored - roll all 6 again!');
     }
@@ -363,15 +363,15 @@ async function handleAITurn() {
       await delay(600);
       
       // Roll or bank decision
-      // Hot dice (all 6 scored) — Hot Hand triples the turn, then must roll all 6 again
+      // Hot dice (all 6 scored) — Hot Hand doubles the turn, then must roll all 6 again
       if (confirmResult.hotDice) {
         const hotBonus = confirmResult.hotHandBonus > 0 ? confirmResult.hotHandBonus : 0;
         const msg = hotBonus > 0
-          ? `🔥 HOT HAND! +${hotBonus} bonus (${confirmResult.segmentScore} tripled) — roll all 6 again!`
+          ? `🔥 HOT HAND! +${hotBonus} bonus (${confirmResult.segmentScore} doubled) — roll all 6 again!`
           : '🔥 Hot dice — must roll all 6 again!';
         setStatus(msg);
         logDecision('ai', hotBonus > 0
-          ? `🔥 Hot Hand! ${confirmResult.segmentScore} tripled to +${confirmResult.segmentScore * 3} this segment`
+          ? `🔥 Hot Hand! ${confirmResult.segmentScore} doubled to +${confirmResult.segmentScore * 2} this segment`
           : 'Hot dice! Must roll all 6 again.');
         await delay(800);
         continue;
@@ -649,7 +649,7 @@ function updateUI() {
 }
 
 /**
- * Render the Hot Hand relic progress (how many times turn was tripled, and current turn).
+ * Render the Hot Hand relic progress (how many times turn was doubled, and current turn).
  */
 function renderHotHand() {
   const el = elements.hotHandProgress;
@@ -657,7 +657,7 @@ function renderHotHand() {
   
   const triples = game.hotHandCount || 0;
   if (triples > 0) {
-    el.textContent = `Tripled ${triples}× · Turn: ${game.turnScore} pts`;
+    el.textContent = `Doubled ${triples}× · Turn: ${game.turnScore} pts`;
   } else {
     el.textContent = '';
   }
