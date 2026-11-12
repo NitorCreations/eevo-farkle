@@ -211,8 +211,8 @@ function confirmSelectionForRoll() {
   
   if (result.hotDice) {
     if (result.hotHandBonus > 0) {
-      setStatus(`🔥 HOT HAND! Turn tripled to ${result.turnScore} pts — roll all 6 again!`);
-      logDecision('player', `🔥 Hot Hand! Turn score tripled from ${result.turnScore - result.hotHandBonus} to ${result.turnScore}`);
+      setStatus(`🔥 HOT HAND! +${result.hotHandBonus} bonus (${result.score} worth tripled) — roll all 6 again!`);
+      logDecision('player', `🔥 Hot Hand! ${result.score} tripled to +${result.score * 3} this segment`);
     } else {
       setStatus('🔥 HOT DICE! All dice scored - roll all 6 again!');
     }
@@ -367,11 +367,11 @@ async function handleAITurn() {
       if (confirmResult.hotDice) {
         const hotBonus = confirmResult.hotHandBonus > 0 ? confirmResult.hotHandBonus : 0;
         const msg = hotBonus > 0
-          ? `🔥 ${hotBonus > 0 ? `HOT HAND! Turn tripled to ${confirmResult.turnScore}` : ''} — must roll all 6 again!`
+          ? `🔥 HOT HAND! +${hotBonus} bonus (${confirmResult.segmentScore} tripled) — roll all 6 again!`
           : '🔥 Hot dice — must roll all 6 again!';
         setStatus(msg);
         logDecision('ai', hotBonus > 0
-          ? `🔥 Hot Hand! Turn score tripled from ${confirmResult.turnScore - hotBonus} to ${confirmResult.turnScore}`
+          ? `🔥 Hot Hand! ${confirmResult.segmentScore} tripled to +${confirmResult.segmentScore * 3} this segment`
           : 'Hot dice! Must roll all 6 again.');
         await delay(800);
         continue;

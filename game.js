@@ -272,6 +272,8 @@ export class FarkleGame {
     this.hotHandCount = 0;
     // Capture last hot-hand bonus for display
     this.lastHotHandBonus = 0;
+    // Score accumulated since the last hot hand (or turn start)
+    this.segmentScore = 0;
   }
   
   /**
@@ -331,6 +333,8 @@ export class FarkleGame {
     
     const score = getSelectionScore(selected);
     this.turnScore += score;
+    // segmentScore tracks score since the last hot hand (or turn start)
+    this.segmentScore += score;
     this.scoredThisTurn += selected.length;
     
     // Calculate remaining dice
@@ -338,16 +342,20 @@ export class FarkleGame {
     
     // Trigger: all 6 dice scored (hot dice)
     if (remaining === 0) {
-      // Hot Hand relic: triple the turn score when going hot
-      const hotHandBonus = this.turnScore * 2; // turnScore becomes x3
-      this.turnScore *= 3;
+      // Hot Hand relic: triple the score accumulated since the last hot hand
+      // (i.e. the current "segment"), not the whole turn.
+      // segmentScore already includes this roll's score; add 2x more to make it 3x.
+      const hotHandBonus = this.segmentScore * 2;
+      this.turnScore += hotHandBonus;
       this.hotHandCount++;
+      this.segmentScore = 0; // reset for the next segment (fresh 6-dice roll)
       this.diceToRoll = 6;
       this.scoredThisTurn = 0;
       return {
         valid: true, score, hotDice: true, remaining: 6,
         turnScore: this.turnScore,
         hotHandBonus,
+        segmentScore: this.segmentScore,
       };
     }
     
@@ -404,6 +412,7 @@ export class FarkleGame {
     this.scoredThisTurn = 0;
     this.hotHandCount = 0;
     this.lastHotHandBonus = 0;
+    this.segmentScore = 0;
     this.diceToRoll = 6;
     this.currentDice = [];
     this.selectedIndices.clear();
@@ -431,6 +440,7 @@ export class FarkleGame {
       // Relic: Hot Hand state
       hotHandCount: this.hotHandCount,
       lastHotHandBonus: this.lastHotHandBonus,
+      segmentScore: this.segmentScore,
     };
   }
 }
