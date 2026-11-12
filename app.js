@@ -499,17 +499,11 @@ function displayAITurnHistory(turnLog, gameState, endType, bankedScore) {
       const bankPct = typeof rd.bankProbability === 'number' ? rd.bankProbability : 0.5;
       const rollPct = typeof rd.rollProbability === 'number' ? rd.rollProbability : 0.5;
       const chosen = entry.finalAction;
-      // Show the momentum-adjusted bank value (streak at decision + this bank = next bonus)
-      const streakForBank = game.aiStreak; // current AI streak before this bank
-      const momentumDisplay = streakForBank > 0
-        ? `<span class="option-desc">(×${(1 + streakForBank * 0.10).toFixed(2)} moment.)</span>`
-        : '';
       html += `
         <div class="confidence-bar ${chosen === 'bank' ? 'chosen' : ''}">
           <span class="label">Bank ${entry.cumulativeScore} pts</span>
           <div class="bar"><div class="fill bank-fill" style="width: ${bankPct * 100}%"></div></div>
           <span class="value">${(bankPct * 100).toFixed(0)}%</span>
-          ${momentumDisplay}
         </div>
         <div class="confidence-bar ${chosen === 'roll' ? 'chosen' : ''}">
           <span class="label">Roll ${entry.remaining} dice</span>
