@@ -90,9 +90,9 @@ MOMENTUM RELIC ACTIVE:
   // Hot Hand relic context
   const hotHandLine = `
 HOT HAND RELIC ACTIVE:
-- If you score ALL 6 dice in one roll, the points you scored since your previous hot hand (this "segment") are DOUBLED.
+- If you score ALL 6 dice on a fresh 6-dice roll, the points you've banked since your last hot hand are DOUBLED.
 - You've already triggered hot dice ${hotHandCount || 0} times this turn.
-- This makes keeping most of the dice (to leave few to reroll for a hot hand) very valuable.`;
+- To go hot you must score every die of a 6-dice roll — so keeping all 6 of a 6-dice roll triggers the double.`;
 
   return `You are playing Farkle, a dice game. First to ${target} points wins.
 
@@ -134,15 +134,22 @@ export async function askWhichDiceToKeep(gameState, options) {
   
   const state = buildStateDescription(gameState, options);
   
-  // Build criteria from options
-  const criteria = options.map((opt, i) => 
-    `Keep [${opt.dice.join(', ')}] (+${opt.score} pts, ${opt.remaining} dice remain)`
-  );
+  // Build criteria from options, clarifying hot hand triggers
+  const criteria = options.map((opt, i) => {
+    let extra = '';
+    if (opt.remaining === 0) {
+      // Keeping all 6 dice scores everything on this roll
+      extra = ` - THIS SCORES ALL 6 DICE and triggers a doubled (x2) turn`;
+    } else if (opt.remaining === 6) {
+      extra = ` - keeps all 6 dice available for the next roll`;
+    }
+    return `Keep [${opt.dice.join(', ')}] (+${opt.score} pts, ${opt.remaining} dice remain)${extra}`;
+  });
   
   const questions = {
     dice_selection: {
       type: 'score',
-      instructions: `Which dice should you keep? Consider the tradeoff between immediate points and remaining dice for the next roll. More remaining dice means more scoring potential but also more farkle risk.`,
+      instructions: `You are choosing which scoring dice to KEEP. Keeping all 6 dice on a 6-dice roll (hot hand) DOUBLES the points you've banked since the last hot hand. Otherwise, fewer remaining dice = less farkle risk but also smaller future rolls; more remaining dice = bigger future roll but more farkle risk. Balance immediate points against your best chance to go hot.`,
       criteria
     }
   };
@@ -201,9 +208,9 @@ MOMENTUM RELIC ACTIVE:
 - A farkle would reset your streak to 0 (losing the ${streak * 10}% bonus)
 
 HOT HAND RELIC ACTIVE:
-- Scoring ALL 6 dice doubles the points you've scored since your last hot hand (this "segment").
-- Current segment score: ${gameState.segmentScore || 0} points (leftover to reroll: ${diceRemaining}).
-- If you score all ${diceRemaining} dice, that segment is doubled.`;
+- If you score ALL 6 dice on a fresh 6-dice roll, the points you've banked since the last hot hand are DOUBLED.
+- Banking is safe: you keep ${turnScore} (${bankedWithMomentum} with momentum).
+- Rolling may earn more, but a farkle loses ${turnScore} points AND your streak.`;
 
   const state = `You are playing Farkle. First to ${target} points wins.
 
@@ -216,9 +223,9 @@ CURRENT SITUATION:
 ${couldWin ? '\n⚠️ BANKING NOW WOULD WIN THE GAME!' : ''}
 ${momentumLine}
 
-DECISION: Should you roll ${diceRemaining} dice (risking farkle and losing ${turnScore} points plus your streak) or bank your ${turnScore} points safely?
+DECISION: Should you roll ${diceRemaining} dice or bank your ${turnScore} points?
 
-HOT HAND NOTE: If you score all ${diceRemaining} dice, the points you've scored since your last hot hand (this segment, currently ${gameState.segmentScore || 0}) are DOUBLED. This makes rolling chancy low-count dice much more valuable.
+HOT HAND GUIDE: Rolling gives you a chance to later re-roll all 6 dice and, if they all score, DOUBLE your current segment. The risk: a farkle loses ${turnScore} points and your momentum streak.
 
 FARKLE PROBABILITIES (approximate):
 - 1 die: ~67% farkle chance
@@ -231,10 +238,10 @@ FARKLE PROBABILITIES (approximate):
   const questions = {
     roll_or_bank: {
       type: 'score',
-      instructions: `Should you roll again or bank your points? Consider: your lead/deficit, points at risk, dice remaining, momentum streak (farkle resets it), and the double (x2) Hot Hand payout on your current segment for scoring all remaining dice.`,
+      instructions: `Decide between banking safely or rolling for more. If you are far ahead or close to winning, lean toward banking. If you are behind or the double-on-hot-hand is worth the farkle risk, lean toward rolling. Do not over-swing; a farkle resets your momentum.`,
       criteria: [
-        `BANK: Secure ${turnScore} points (${bankedWithMomentum} with momentum)${couldWin ? ' - THIS WINS THE GAME' : ''}`,
-        `ROLL: Risk ${turnScore} points AND your momentum streak to DOUBLE (x2) your current segment (${gameState.segmentScore || 0} pts) by scoring all ${diceRemaining} dice`
+        `BANK: Secure ${turnScore} (${bankedWithMomentum} with momentum) now${couldWin ? ' - THIS WINS THE GAME' : ''}`,
+        `ROLL: Risk ${turnScore} + your streak to build toward a doubled segment by re-rolling ${diceRemaining} dice`
       ]
     }
   };
