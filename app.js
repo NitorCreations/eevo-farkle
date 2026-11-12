@@ -22,6 +22,7 @@ const elements = {
   apiKeyInput: document.getElementById('api-key'),
   playerMomentum: document.getElementById('player-momentum'),
   aiMomentum: document.getElementById('ai-momentum'),
+  hotHandProgress: document.getElementById('hot-hand-progress'),
 };
 
 // Game instance
@@ -209,7 +210,12 @@ function confirmSelectionForRoll() {
   });
   
   if (result.hotDice) {
-    setStatus('🔥 HOT DICE! All dice scored - roll all 6 again!');
+    if (result.hotHandBonus > 0) {
+      setStatus(`🔥 HOT HAND! Turn tripled to ${result.turnScore} pts — roll all 6 again!`);
+      logDecision('player', `🔥 Hot Hand! Turn score tripled from ${result.turnScore - result.hotHandBonus} to ${result.turnScore}`);
+    } else {
+      setStatus('🔥 HOT DICE! All dice scored - roll all 6 again!');
+    }
   }
   
   updateUI();
@@ -357,10 +363,16 @@ async function handleAITurn() {
       await delay(600);
       
       // Roll or bank decision
-      // Hot dice (all 6 scored) — must roll again regardless of what AI says
+      // Hot dice (all 6 scored) — Hot Hand triples the turn, then must roll all 6 again
       if (confirmResult.hotDice) {
-        setStatus('🔥 AI scored all 6 dice — must roll all 6 again!');
-        logDecision('ai', 'Hot dice! Must roll all 6 again.');
+        const hotBonus = confirmResult.hotHandBonus > 0 ? confirmResult.hotHandBonus : 0;
+        const msg = hotBonus > 0
+          ? `🔥 ${hotBonus > 0 ? `HOT HAND! Turn tripled to ${confirmResult.turnScore}` : ''} — must roll all 6 again!`
+          : '🔥 Hot dice — must roll all 6 again!';
+        setStatus(msg);
+        logDecision('ai', hotBonus > 0
+          ? `🔥 Hot Hand! Turn score tripled from ${confirmResult.turnScore - hotBonus} to ${confirmResult.turnScore}`
+          : 'Hot dice! Must roll all 6 again.');
         await delay(800);
         continue;
       }
@@ -632,6 +644,23 @@ function updateUI() {
   
   // Relic: Momentum display
   renderMomentum();
+  // Relic: Hot Hand display
+  renderHotHand();
+}
+
+/**
+ * Render the Hot Hand relic progress (how many times turn was tripled, and current turn).
+ */
+function renderHotHand() {
+  const el = elements.hotHandProgress;
+  if (!el) return;
+  
+  const triples = game.hotHandCount || 0;
+  if (triples > 0) {
+    el.textContent = `Tripled ${triples}× · Turn: ${game.turnScore} pts`;
+  } else {
+    el.textContent = '';
+  }
 }
 
 /**

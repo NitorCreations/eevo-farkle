@@ -127,6 +127,12 @@ header h1 {
   color: var(--ai-color);
 }
 
+.relic-here {
+  font-size: 0.85rem;
+  color: var(--warning);
+  min-height: 1.2em;
+}
+
 .relic-streaks {
   display: flex;
   gap: 14px;

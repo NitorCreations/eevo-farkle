@@ -25,6 +25,12 @@ export const ACTIVE_RELICS = {
     emoji: '⏩',
     description: 'Each consecutive banked turn adds +10% to the points you bank. A farkle resets your streak. Your momentum does not affect the opponent.',
   },
+  hotHand: {
+    id: 'hotHand',
+    name: 'Hot Hand',
+    emoji: '🔥',
+    description: 'When you score all 6 dice (hot dice), your current turn score is tripled instead of just rerolling. Chasing it with few dice left is tempting!',
+  },
 };
 
 // Scoring combinations
@@ -262,6 +268,10 @@ export class FarkleGame {
     this.aiStreak = 0;
     // Captured momentum bonus applied to the most recent bank (for display)
     this.lastMomentumBonus = { player: 0, ai: 0 };
+    // Relic: Hot Hand — number of times turn score was tripled this turn
+    this.hotHandCount = 0;
+    // Capture last hot-hand bonus for display
+    this.lastHotHandBonus = 0;
   }
   
   /**
@@ -275,10 +285,11 @@ export class FarkleGame {
   
   /**
    * Current momentum bonus percentage for a player (0 = no bonus, 50 = +50%).
+   * Computed as streak * 10 (whole number) to avoid floating point drift.
    */
   momentumBonus(player) {
     const streak = player === 'player' ? this.playerStreak : this.aiStreak;
-    return streak * MOMENTUM_INCREMENT * 100;
+    return streak * 10;
   }
   
   roll() {
@@ -325,11 +336,19 @@ export class FarkleGame {
     // Calculate remaining dice
     const remaining = this.currentDice.length - selected.length;
     
-    // Hot dice check
+    // Trigger: all 6 dice scored (hot dice)
     if (remaining === 0) {
+      // Hot Hand relic: triple the turn score when going hot
+      const hotHandBonus = this.turnScore * 2; // turnScore becomes x3
+      this.turnScore *= 3;
+      this.hotHandCount++;
       this.diceToRoll = 6;
       this.scoredThisTurn = 0;
-      return { valid: true, score, hotDice: true, remaining: 6 };
+      return {
+        valid: true, score, hotDice: true, remaining: 6,
+        turnScore: this.turnScore,
+        hotHandBonus,
+      };
     }
     
     this.diceToRoll = remaining;
@@ -383,6 +402,8 @@ export class FarkleGame {
   endTurn() {
     this.turnScore = 0;
     this.scoredThisTurn = 0;
+    this.hotHandCount = 0;
+    this.lastHotHandBonus = 0;
     this.diceToRoll = 6;
     this.currentDice = [];
     this.selectedIndices.clear();
@@ -407,6 +428,9 @@ export class FarkleGame {
       playerStreak: this.playerStreak,
       aiStreak: this.aiStreak,
       lastMomentumBonus: { ...this.lastMomentumBonus },
+      // Relic: Hot Hand state
+      hotHandCount: this.hotHandCount,
+      lastHotHandBonus: this.lastHotHandBonus,
     };
   }
 }

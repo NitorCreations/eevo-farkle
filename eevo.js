@@ -69,7 +69,7 @@ async function eevoSystemOne(state, questions) {
  * Build game state description for Eevo
  */
 function buildStateDescription(gameState, options) {
-  const { playerScore, aiScore, turnScore, currentDice, playerStreak, aiStreak } = gameState;
+  const { playerScore, aiScore, turnScore, currentDice, playerStreak, aiStreak, hotHandCount } = gameState;
   const target = 10000;
   
   const diceStr = currentDice.join(', ');
@@ -86,7 +86,14 @@ MOMENTUM RELIC ACTIVE:
 - Each consecutive banked turn adds +10%. A farkle resets it.
 - Your current streak: ${yourStreak} consecutive banks (next bank earns ${(yourMult).toFixed(2)}x, i.e. +${yourStreak * 10}%)
 - Opponent's streak: ${oppStreak} consecutive banks`;
-  
+
+  // Hot Hand relic context
+  const hotHandLine = `
+HOT HAND RELIC ACTIVE:
+- If you score ALL 6 dice in one roll, your turn score is TRIPLED (not just rerolled).
+- You've already triggered hot dice ${hotHandCount || 0} times this turn.
+- This makes keeping most of the dice (to leave few to reroll for a hot hand) very valuable.`;
+
   return `You are playing Farkle, a dice game. First to ${target} points wins.
 
 CURRENT SITUATION:
@@ -98,6 +105,7 @@ CURRENT SITUATION:
 SCORING OPTIONS:
 ${optionsStr}
 ${momentumLine}
+${hotHandLine}
 
 FARKLE RISK: If you roll and get no scoring dice, you lose ALL points from this turn (currently ${turnScore} + whatever you keep) AND reset your momentum streak (losing the bonus).
 
@@ -106,8 +114,8 @@ KEY CONSIDERATIONS:
 - 1s and 5s always score individually
 - Three of a kind and better combos are valuable
 - If you're behind, you may need to take more risks
-- If you're ahead, conservative play might be better
-- "Hot dice" (scoring all 6 dice) lets you roll all 6 again`;
+- "Hot dice" (scoring all 6 dice) triples your turn with Hot Hand
+- "Farkle" (no scoring dice) resets momentum AND loses the turn`;
 }
 
 /**
@@ -185,12 +193,17 @@ export async function askRollOrBank(gameState, diceRemaining) {
   const streak = gameState.aiStreak || 0;
   const bonusMult = 1 + streak * 0.10;
   const bankedWithMomentum = Math.round(turnScore * bonusMult);
+  const hotHand = gameState.hotHandCount || 0;
   const momentumLine = `
 MOMENTUM RELIC ACTIVE:
 - Your momentum streak: ${streak} consecutive banks
 - Banking now: ${turnScore} × ${bonusMult.toFixed(2)} = ${bankedWithMomentum} effective points
-- A farkle would reset your streak to 0 (losing the ${streak * 10}% bonus)`;
-  
+- A farkle would reset your streak to 0 (losing the ${streak * 10}% bonus)
+
+HOT HAND RELIC ACTIVE:
+- Scoring ALL 6 dice triples your turn score.
+- Leftover dice to reroll: ${diceRemaining}. If all 6 remaining combinations score (hot hand), your ${turnScore} becomes ${turnScore * 3}.`;
+
   const state = `You are playing Farkle. First to ${target} points wins.
 
 CURRENT SITUATION:
@@ -204,6 +217,8 @@ ${momentumLine}
 
 DECISION: Should you roll ${diceRemaining} dice (risking farkle and losing ${turnScore} points plus your streak) or bank your ${turnScore} points safely?
 
+HOT HAND NOTE: If you score all ${diceRemaining} dice, your turn score is TRIPLED. This makes rolling chancy low-count dice much more valuable.
+
 FARKLE PROBABILITIES (approximate):
 - 1 die: ~67% farkle chance
 - 2 dice: ~44% farkle chance
@@ -215,10 +230,10 @@ FARKLE PROBABILITIES (approximate):
   const questions = {
     roll_or_bank: {
       type: 'score',
-      instructions: `Should you roll again or bank your points? Consider: your lead/deficit, points at risk, dice remaining, momentum streak (farkle resets it), and whether banking would win.`,
+      instructions: `Should you roll again or bank your points? Consider: your lead/deficit, points at risk, dice remaining, momentum streak (farkle resets it), and the huge Hot Hand payout for scoring all remaining dice.`,
       criteria: [
         `BANK: Secure ${turnScore} points (${bankedWithMomentum} with momentum)${couldWin ? ' - THIS WINS THE GAME' : ''}`,
-        `ROLL: Risk ${turnScore} points AND your momentum streak for potential gain with ${diceRemaining} dice`
+        `ROLL: Risk ${turnScore} points AND your momentum streak to chase a TRIPLED (x3) payout by scoring all ${diceRemaining} dice`
       ]
     }
   };
