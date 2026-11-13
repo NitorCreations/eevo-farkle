@@ -129,6 +129,8 @@ function buildStateDescription(gameState, options) {
     ? 'AND reset your momentum streak (losing the bonus)'
     : 'AND lose the turn';
   
+  const relicBlock = relicLines.length ? relicLines.join('\n\n') : '(No relics are active this game.)';
+  
   const hotHandConsideration = hotHandOn
     ? `- "Hot dice" (scoring all 6 dice) doubles your turn with Hot Hand\n`
     : '';
