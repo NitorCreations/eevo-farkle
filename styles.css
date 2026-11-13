@@ -54,37 +54,6 @@ header h1 {
   margin-bottom: 12px;
 }
 
-.api-key-bar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  font-size: 0.9rem;
-  color: var(--text-muted);
-}
-
-.api-key-bar label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.api-key-bar input {
-  padding: 8px 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-  font-size: 0.9rem;
-  width: 280px;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.api-key-bar input:focus {
-  border-color: var(--ai-color);
-}
-
 .key-status {
   font-size: 0.85rem;
 }
@@ -901,7 +870,8 @@ footer {
   margin-bottom: 10px;
 }
 
-.modal-section input[type="password"] {
+.modal-section input[type="password"],
+.modal-section input[type="text"]#setup-api-key {
   padding: 10px 14px;
   background: var(--surface-2);
   border: 1px solid var(--border);
@@ -913,8 +883,17 @@ footer {
   transition: border-color 0.2s;
 }
 
-.modal-section input[type="password"]:focus {
+.modal-section input[type="password"]:focus,
+.modal-section input[type="text"]#setup-api-key:focus {
   border-color: var(--ai-color);
+}
+
+/* Mask the API key text without using a password-type input (avoids
+   password-manager detection). -webkit-text-security covers Chromium/Safari;
+   the text-security property is the standard form. */
+.masked-secret {
+  -webkit-text-security: disc;
+  text-security: disc;
 }
 
 .relic-options {

@@ -19,14 +19,13 @@ const elements = {
   btnNewGame: document.getElementById('btn-new-game'),
   insightContent: document.getElementById('insight-content'),
   decisionLog: document.getElementById('decision-log'),
-  apiKeyInput: document.getElementById('api-key'),
   playerMomentum: document.getElementById('player-momentum'),
   aiMomentum: document.getElementById('ai-momentum'),
   hotHandProgress: document.getElementById('hot-hand-progress'),
   rawRequestCount: document.getElementById('raw-request-count'),
   rawRequestContent: document.getElementById('raw-request-content'),
   setupModal: document.getElementById('setup-modal'),
-  setupApiKey: document.getElementById('setup-api-key'),
+  setupKeyField: document.getElementById('setup-key-field'),
   relicOptions: document.getElementById('relic-options'),
   setupStart: document.getElementById('setup-start'),
   setupClose: document.getElementById('setup-close'),
@@ -37,6 +36,9 @@ const elements = {
 // Game instance
 let game = new FarkleGame();
 let isProcessing = false;
+
+// Holds the API key in memory so it can be re-shown in the modal without a DOM field.
+let currentSetupKey = '';
 
 // Die face rendering (using Unicode dice)
 const dieFaces = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
@@ -49,7 +51,6 @@ function init() {
   elements.btnRoll.addEventListener('click', handleRoll);
   elements.btnBank.addEventListener('click', handleBank);
   elements.btnNewGame.addEventListener('click', openSetupModal);
-  elements.apiKeyInput.addEventListener('input', handleKeyInput);
   elements.setupStart.addEventListener('click', startGameFromSetup);
   elements.setupClose.addEventListener('click', closeSetupModal);
   
@@ -72,17 +73,29 @@ function gameInProgress() {
 }
 
 /**
- * Open the pre-game setup modal. Pre-fills the API key if one is already set.
+ * Render the API key password field into the modal.
+ * The field only exists while the modal is open; it's removed after capture
+ * (so password managers don't see it sitting in the DOM during gameplay).
+ */
+function renderKeyField() {
+  if (!elements.setupKeyField) return;
+  elements.setupKeyField.innerHTML = `
+    <input type="text" id="setup-api-key" class="masked-secret" placeholder="Enter your Eevo API key"
+      autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" value="${escapeHtml(currentSetupKey)}">
+  `;
+  // Capture into memory as the user types, without keeping the field alive.
+  const input = elements.setupKeyField.querySelector('#setup-api-key');
+  input.addEventListener('input', () => { currentSetupKey = input.value; });
+  input.focus();
+}
+
+/**
+ * Open the pre-game setup modal, rendering the API key field fresh.
  */
 function openSetupModal() {
-  // Pre-fill the API key field with the current header value if present
-  elements.setupApiKey.value = elements.apiKeyInput.value.trim();
   renderRelicOptions();
+  renderKeyField();
   elements.setupModal.hidden = false;
-  // If starting fresh with no key, focus the key field
-  if (!elements.apiKeyInput.value) {
-    elements.setupApiKey.focus();
-  }
 }
 
 /**
@@ -124,17 +137,20 @@ function renderRelicOptions() {
  * Start a new game using the setup modal's selections.
  */
 function startGameFromSetup() {
-  // Apply the API key from the modal to the header field + module
-  const key = elements.setupApiKey.value.trim();
-  elements.apiKeyInput.value = key;
+  // Capture the key from the field, set it on the module, then remove the field.
+  const field = elements.setupKeyField ? elements.setupKeyField.querySelector('#setup-api-key') : null;
+  const key = (field ? field.value : currentSetupKey).trim();
+  currentSetupKey = key;
   eevo.setApiKey(key);
+  // Remove the password field from the DOM entirely.
+  if (elements.setupKeyField) elements.setupKeyField.innerHTML = '';
   
   // Collect the selected relics
   const enabledRelics = [];
   elements.relicOptions.querySelectorAll('input[type="checkbox"]').forEach(cb => {
     if (cb.checked) enabledRelics.push(cb.dataset.relicId);
   });
-  // If none selected, default to all (or allow none). We'll allow none.
+  // If none selected, start with no relics enabled
   game.setEnabledRelics(enabledRelics.length ? enabledRelics : []);
   
   // Close modal and start the game
@@ -156,13 +172,6 @@ function startNewGame() {
   const activeCount = game.enabledRelics.size;
   const relicNote = activeCount ? ` (relics: ${[...game.enabledRelics].map(id => ACTIVE_RELICS[id]?.name || id).join(', ')})` : ' (no relics)';
   logDecision('system', `New game started.${relicNote}`);
-}
-
-/**
- * Set API key on input (in-memory only, not persisted)
- */
-function handleKeyInput() {
-  eevo.setApiKey(elements.apiKeyInput.value.trim());
 }
 
 /**

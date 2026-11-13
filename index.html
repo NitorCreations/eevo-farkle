@@ -11,12 +11,6 @@
     <header>
       <h1>🎲 Farkle vs Eevo AI</h1>
       <p class="subtitle">Test the decision-making limits of Eevo's SystemOne model</p>
-      <div class="api-key-bar">
-        <label>
-          Eevo API Key:
-          <input type="password" id="api-key" placeholder="Enter your Eevo API key" autocomplete="off" data-lpignore="true" data-1p-ignore="true">
-        </label>
-      </div>
     </header>
 
     <main>
@@ -141,9 +135,9 @@
     <div class="modal">
       <h2>🎲 Game Setup</h2>
 
-      <div class="modal-section">
+      <div class="modal-section" id="setup-key-section">
         <label for="setup-api-key">Eevo API Key</label>
-        <input type="password" id="setup-api-key" placeholder="Enter your Eevo API key" autocomplete="off" data-lpignore="true" data-1p-ignore="true">
+        <div id="setup-key-field"></div>
       </div>
 
       <div class="modal-section">
