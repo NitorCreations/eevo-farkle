@@ -856,6 +856,11 @@ footer {
   padding: 20px;
 }
 
+/* The [hidden] attribute must override the display:flex above */
+.modal-overlay[hidden] {
+  display: none;
+}
+
 .modal {
   background: var(--surface);
   border: 1px solid var(--border);
