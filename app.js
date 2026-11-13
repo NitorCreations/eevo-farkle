@@ -23,6 +23,8 @@ const elements = {
   playerMomentum: document.getElementById('player-momentum'),
   aiMomentum: document.getElementById('ai-momentum'),
   hotHandProgress: document.getElementById('hot-hand-progress'),
+  rawRequestCount: document.getElementById('raw-request-count'),
+  rawRequestContent: document.getElementById('raw-request-content'),
 };
 
 // Game instance
@@ -411,6 +413,9 @@ async function handleAITurn() {
     // Render the full AI turn history (all rolls' decisions)
     displayAITurnHistory(aiTurnLog, game, turnEndType, turnBankedScore);
     
+    // Render the raw Eevo requests captured this turn
+    renderRawRequests();
+    
     // Player's turn
     if (!game.gameOver && game.currentPlayer === 'player') {
       setStatus("Your turn! Roll the dice.");
@@ -690,6 +695,63 @@ function renderMomentum() {
   
   prevMomentum.player = pBonus;
   prevMomentum.ai = aBonus;
+}
+
+/**
+ * Render the raw Eevo request payloads in the debug viewer.
+ */
+function renderRawRequests() {
+  if (!elements.rawRequestContent) return;
+  const requests = eevo.getDebugRequests();
+  
+  elements.rawRequestCount.textContent = requests.length ? `(${requests.length})` : '';
+  
+  if (!requests.length) {
+    elements.rawRequestContent.innerHTML = '<p class="muted">No requests captured yet.</p>';
+    return;
+  }
+  
+  // Show the most recent requests first
+  const html = requests.slice().reverse().map(req => {
+    const time = new Date(req.at).toLocaleTimeString();
+    const questionsHtml = Object.entries(req.questions).map(([qid, q]) => `
+      <div class="raw-question">
+        <div class="raw-qid">❓ ${qid} (type: ${q.type || '?'})</div>
+        <div class="raw-q-instr">${escapeHtml(q.instructions || '')}</div>
+        ${Array.isArray(q.criteria) ? `
+          <ul class="raw-criteria">
+            ${q.criteria.map((c, i) => `<li><span class="raw-idx">${i}</span> ${escapeHtml(c)}</li>`).join('')}
+          </ul>` : ''}
+      </div>`).join('');
+    
+    return `
+      <details class="raw-request" open="${requests.length === 1}">
+        <summary>
+          <span class="raw-time">${time}</span>
+          <span class="raw-id">${req.id}</span>
+        </summary>
+        <div class="raw-body">
+          <div class="raw-section">
+            <h5>model</h5>
+            <pre>${escapeHtml(JSON.stringify(req.model, null, 2))}</pre>
+          </div>
+          <div class="raw-section">
+            <h5>state</h5>
+            <pre>${escapeHtml(req.state || '')}</pre>
+          </div>
+          <div class="raw-section">
+            <h5>questions</h5>
+            ${questionsHtml || '<p class="muted">(none)</p>'}
+          </div>
+        </div>
+      </details>`;
+  }).join('');
+  
+  elements.rawRequestContent.innerHTML = html;
+}
+
+function escapeHtml(str) {
+  return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 /**

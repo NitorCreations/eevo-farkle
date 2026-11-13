@@ -21,6 +21,19 @@ const EEVO_API_URL = IS_LOCAL_DEV ? '/proxy/eevo/api/v1/systemone' : 'https://ee
 // In-memory API key — never persisted
 let currentApiKey = '';
 
+// Store the most recent raw request payloads for the debug viewer.
+// The API key is stripped from them before storing.
+const recentRequests = [];
+const MAX_DEBUG_REQUESTS = 50;
+
+/**
+ * Get a copy of the recent raw requests (minus the API key).
+ * Each entry: { id, url, model, state, questions, at }
+ */
+export function getDebugRequests() {
+  return recentRequests.slice();
+}
+
 export function setApiKey(key) {
   currentApiKey = key;
 }
@@ -42,6 +55,17 @@ async function eevoSystemOne(state, questions) {
     state,
     questions
   };
+  
+  // Store a redacted copy for the debug viewer (never the API key)
+  recentRequests.push({
+    id: `req_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    url: EEVO_API_URL,
+    model: payload.model,
+    state,
+    questions,
+    at: new Date().toISOString(),
+  });
+  if (recentRequests.length > MAX_DEBUG_REQUESTS) recentRequests.shift();
   
   const url = EEVO_API_URL;
   

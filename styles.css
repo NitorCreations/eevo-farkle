@@ -643,6 +643,134 @@ header h1 {
   color: var(--warning);
 }
 
+/* Raw Requests Debug Viewer */
+.raw-requests {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.raw-requests summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+
+.raw-count {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.raw-content {
+  margin-top: 12px;
+  font-size: 0.9rem;
+}
+
+.raw-request {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.raw-request > summary {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.raw-time {
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+.raw-id {
+  color: var(--ai-color);
+  font-family: monospace;
+}
+
+.raw-body {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.raw-section {
+  margin-bottom: 10px;
+}
+
+.raw-section h5 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.raw-section pre {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, monospace;
+  font-size: 0.82rem;
+  color: var(--text);
+  margin: 0;
+}
+
+.raw-question {
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  background: var(--bg);
+}
+
+.raw-qid {
+  font-weight: 600;
+  color: var(--ai-color);
+  font-size: 0.85rem;
+  font-family: monospace;
+}
+
+.raw-q-instr {
+  color: var(--text);
+  font-size: 0.85rem;
+  margin-top: 4px;
+}
+
+.raw-criteria {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  list-style: none;
+}
+
+.raw-criteria li {
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+.raw-idx {
+  display: inline-block;
+  min-width: 18px;
+  color: var(--warning);
+  font-weight: 700;
+}
+
 /* Decision Log */
 .decision-log {
   background: var(--surface);
