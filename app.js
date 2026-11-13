@@ -30,6 +30,8 @@ const elements = {
   relicOptions: document.getElementById('relic-options'),
   setupStart: document.getElementById('setup-start'),
   setupClose: document.getElementById('setup-close'),
+  relicMomentumCard: document.getElementById('relic-momentum'),
+  relicHotHandCard: document.getElementById('relic-hot-hand'),
 };
 
 // Game instance
@@ -740,6 +742,21 @@ function updateUI() {
   renderMomentum();
   // Relic: Hot Hand display
   renderHotHand();
+  // Show/hide relic cards based on which relics are enabled
+  renderRelicCards();
+}
+
+/**
+ * Show/hide the top-bar relic cards based on which relics are enabled this game.
+ */
+function renderRelicCards() {
+  const enabled = game.enabledRelics ? new Set(game.enabledRelics) : new Set(Object.keys(ACTIVE_RELICS));
+  if (elements.relicMomentumCard) {
+    elements.relicMomentumCard.style.display = enabled.has('momentum') ? '' : 'none';
+  }
+  if (elements.relicHotHandCard) {
+    elements.relicHotHandCard.style.display = enabled.has('hotHand') ? '' : 'none';
+  }
 }
 
 /**
