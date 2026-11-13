@@ -93,30 +93,45 @@ async function eevoSystemOne(state, questions) {
  * Build game state description for Eevo
  */
 function buildStateDescription(gameState, options) {
-  const { playerScore, aiScore, turnScore, currentDice, playerStreak, aiStreak, hotHandCount } = gameState;
+  const { playerScore, aiScore, turnScore, currentDice, playerStreak, aiStreak, hotHandCount, enabledRelics } = gameState;
   const target = 10000;
+  
+  const relics = Array.isArray(enabledRelics) ? new Set(enabledRelics) : new Set(['momentum', 'hotHand']);
+  const momentumOn = relics.has('momentum');
+  const hotHandOn = relics.has('hotHand');
   
   const diceStr = currentDice.join(', ');
   const optionsStr = options.map((opt, i) => 
     `Option ${i + 1}: Keep [${opt.dice.join(', ')}] for ${opt.score} points, ${opt.remaining} dice left to roll`
   ).join('\n');
   
-  // Momentum relic context (this prompt is built for the AI's decision-making)
-  const yourStreak = aiStreak || 0;
-  const oppStreak = playerStreak || 0;
-  const yourMult = 1 + yourStreak * 0.10;
-  const momentumLine = `
-MOMENTUM RELIC ACTIVE:
+  // Momentum relic context (only if enabled)
+  const relicLines = [];
+  if (momentumOn) {
+    const yourStreak = aiStreak || 0;
+    const oppStreak = playerStreak || 0;
+    const yourMult = 1 + yourStreak * 0.10;
+    relicLines.push(`MOMENTUM RELIC ACTIVE:
 - Each consecutive banked turn adds +10%. A farkle resets it.
 - Your current streak: ${yourStreak} consecutive banks (next bank earns ${(yourMult).toFixed(2)}x, i.e. +${yourStreak * 10}%)
-- Opponent's streak: ${oppStreak} consecutive banks`;
-
-  // Hot Hand relic context
-  const hotHandLine = `
-HOT HAND RELIC ACTIVE:
+- Opponent's streak: ${oppStreak} consecutive banks`);
+  }
+  
+  // Hot Hand relic context (only if enabled)
+  if (hotHandOn) {
+    relicLines.push(`HOT HAND RELIC ACTIVE:
 - If you score ALL 6 dice on a fresh 6-dice roll, the points you've banked since your last hot hand are DOUBLED.
 - You've already triggered hot dice ${hotHandCount || 0} times this turn.
-- To go hot you must score every die of a 6-dice roll — so keeping all 6 of a 6-dice roll triggers the double.`;
+- To go hot you must score every die of a 6-dice roll — so keeping all 6 of a 6-dice roll triggers the doubling.`);
+  }
+  
+  const farkleNote = momentumOn
+    ? 'AND reset your momentum streak (losing the bonus)'
+    : 'AND lose the turn';
+  
+  const hotHandConsideration = hotHandOn
+    ? `- "Hot dice" (scoring all 6 dice) doubles your turn with Hot Hand\n`
+    : '';
 
   return `You are playing Farkle, a dice game. First to ${target} points wins.
 
@@ -128,18 +143,16 @@ CURRENT SITUATION:
 
 SCORING OPTIONS:
 ${optionsStr}
-${momentumLine}
-${hotHandLine}
+${relicBlock}
 
-FARKLE RISK: If you roll and get no scoring dice, you lose ALL points from this turn (currently ${turnScore} + whatever you keep) AND reset your momentum streak (losing the bonus).
+FARKLE RISK: If you roll and get no scoring dice, you lose ALL points from this turn (currently ${turnScore} + whatever you keep) ${farkleNote}.
 
 KEY CONSIDERATIONS:
 - More dice = more chances to score, but also more risk of farkle
 - 1s and 5s always score individually
 - Three of a kind and better combos are valuable
 - If you're behind, you may need to take more risks
-- "Hot dice" (scoring all 6 dice) doubles your turn with Hot Hand
-- "Farkle" (no scoring dice) resets momentum AND loses the turn`;
+${hotHandConsideration}- "Farkle" (no scoring dice) loses the turn${momentumOn ? ' AND your momentum streak' : ''}`;
 }
 
 /**
@@ -158,22 +171,27 @@ export async function askWhichDiceToKeep(gameState, options) {
   
   const state = buildStateDescription(gameState, options);
   
-  // Build criteria from options, clarifying hot hand triggers
+  // Build criteria from options, clarifying hot hand triggers if enabled
+  const hotHandOn = Array.isArray(gameState.enabledRelics) ? gameState.enabledRelics.includes('hotHand') : true;
   const criteria = options.map((opt, i) => {
     let extra = '';
     if (opt.remaining === 0) {
       // Keeping all 6 dice scores everything on this roll
-      extra = ` - THIS SCORES ALL 6 DICE and triggers a doubled (x2) turn`;
+      extra = hotHandOn ? ` - THIS SCORES ALL 6 DICE and triggers a doubled (x2) turn` : ` - THIS SCORES ALL 6 DICE (hot dice)`;
     } else if (opt.remaining === 6) {
       extra = ` - keeps all 6 dice available for the next roll`;
     }
     return `Keep [${opt.dice.join(', ')}] (+${opt.score} pts, ${opt.remaining} dice remain)${extra}`;
   });
   
+  const hotHandInstr = hotHandOn
+    ? ` Keeping all 6 dice on a 6-dice roll (hot hand) DOUBLES the points you've banked since the last hot hand.`
+    : ``;
+  
   const questions = {
     dice_selection: {
       type: 'score',
-      instructions: `You are choosing which scoring dice to KEEP. Keeping all 6 dice on a 6-dice roll (hot hand) DOUBLES the points you've banked since the last hot hand. Otherwise, fewer remaining dice = less farkle risk but also smaller future rolls; more remaining dice = bigger future roll but more farkle risk. Balance immediate points against your best chance to go hot.`,
+      instructions: `You are choosing which scoring dice to KEEP.${hotHandInstr} Otherwise, fewer remaining dice = less farkle risk but also smaller future rolls; more remaining dice = bigger future roll but more farkle risk. Balance immediate points against your best chance to go hot.`,
       criteria
     }
   };
@@ -220,21 +238,39 @@ export async function askRollOrBank(gameState, diceRemaining) {
   const potentialTotal = aiScore + turnScore;
   const couldWin = potentialTotal >= target;
   
-  // Momentum relic: the AI is the one making this decision
+  // Relics gating
+  const relics = Array.isArray(gameState.enabledRelics) ? new Set(gameState.enabledRelics) : new Set(['momentum', 'hotHand']);
+  const momentumOn = relics.has('momentum');
+  const hotHandOn = relics.has('hotHand');
+  
+  // Momentum-related values (only meaningful if momentum is enabled)
   const streak = gameState.aiStreak || 0;
-  const bonusMult = 1 + streak * 0.10;
-  const bankedWithMomentum = Math.round(turnScore * bonusMult);
-  const hotHand = gameState.hotHandCount || 0;
-  const momentumLine = `
-MOMENTUM RELIC ACTIVE:
+  const bonusMult = momentumOn ? 1 + streak * 0.10 : 1;
+  const bankedWithMomentum = momentumOn ? Math.round(turnScore * bonusMult) : turnScore;
+  const bankLabel = momentumOn
+    ? `${turnScore} (${bankedWithMomentum} with momentum)`
+    : `${turnScore}`;
+  
+  const relicLines = [];
+  if (momentumOn) {
+    relicLines.push(`MOMENTUM RELIC ACTIVE:
 - Your momentum streak: ${streak} consecutive banks
 - Banking now: ${turnScore} × ${bonusMult.toFixed(2)} = ${bankedWithMomentum} effective points
-- A farkle would reset your streak to 0 (losing the ${streak * 10}% bonus)
-
-HOT HAND RELIC ACTIVE:
+- A farkle would reset your streak to 0 (losing the ${streak * 10}% bonus)`);
+  }
+  if (hotHandOn) {
+    relicLines.push(`HOT HAND RELIC ACTIVE:
 - If you score ALL 6 dice on a fresh 6-dice roll, the points you've banked since the last hot hand are DOUBLED.
-- Banking is safe: you keep ${turnScore} (${bankedWithMomentum} with momentum).
-- Rolling may earn more, but a farkle loses ${turnScore} points AND your streak.`;
+- Rolling may earn more, but a farkle loses everything.`);
+  }
+  const relicBlock = relicLines.length ? relicLines.join('\n\n') : 'No relics active this game.';
+  
+  const hotHandGuide = hotHandOn
+    ? ` HOT HAND GUIDE: Rolling gives you a chance to later re-roll all 6 dice and, if they all score, DOUBLE your current segment. The risk: a farkle loses ${turnScore} points.`
+    : '';
+  const riskNote = momentumOn
+    ? `A farkle loses ${turnScore} points AND your momentum streak.`
+    : `A farkle loses your ${turnScore} points this turn.`;
 
   const state = `You are playing Farkle. First to ${target} points wins.
 
@@ -242,14 +278,15 @@ CURRENT SITUATION:
 - Your score: ${aiScore} points
 - Opponent score: ${playerScore} points  
 - Points accumulated this turn: ${turnScore}
-- Your potential total if you bank now: ${potentialTotal} (${bankedWithMomentum} with momentum)
+- Your potential total if you bank now: ${momentumOn ? potentialTotal + ' (' + bankedWithMomentum + ' with momentum)' : potentialTotal}
 - Dice available to roll: ${diceRemaining}
 ${couldWin ? '\n⚠️ BANKING NOW WOULD WIN THE GAME!' : ''}
-${momentumLine}
 
-DECISION: Should you roll ${diceRemaining} dice or bank your ${turnScore} points?
+${relicBlock}
 
-HOT HAND GUIDE: Rolling gives you a chance to later re-roll all 6 dice and, if they all score, DOUBLE your current segment. The risk: a farkle loses ${turnScore} points and your momentum streak.
+DECISION: Should you roll ${diceRemaining} dice or bank your ${turnScore} points?${hotHandGuide}
+
+Risk: ${riskNote}
 
 FARKLE PROBABILITIES (approximate):
 - 1 die: ~67% farkle chance
@@ -259,13 +296,17 @@ FARKLE PROBABILITIES (approximate):
 - 5 dice: ~8% farkle chance
 - 6 dice: ~2.3% farkle chance`;
 
+  const rollReason = momentumOn
+    ? `build toward a doubled segment (and keep your streak alive) by re-rolling ${diceRemaining} dice`
+    : `build toward a doubled segment by re-rolling ${diceRemaining} dice`;
+
   const questions = {
     roll_or_bank: {
       type: 'score',
-      instructions: `Decide between banking safely or rolling for more. If you are far ahead or close to winning, lean toward banking. If you are behind or the double-on-hot-hand is worth the farkle risk, lean toward rolling. Do not over-swing; a farkle resets your momentum.`,
+      instructions: `Decide between banking safely or rolling for more. If you are far ahead or close to winning, lean toward banking. If you are behind, lean toward rolling. Bank ignores any potential extra points from rolling.`,
       criteria: [
-        `BANK: Secure ${turnScore} (${bankedWithMomentum} with momentum) now${couldWin ? ' - THIS WINS THE GAME' : ''}`,
-        `ROLL: Risk ${turnScore} + your streak to build toward a doubled segment by re-rolling ${diceRemaining} dice`
+        `BANK: Secure ${bankLabel} now${couldWin ? ' - THIS WINS THE GAME' : ''}`,
+        `ROLL: Risk ${turnScore} to ${rollReason}`
       ]
     }
   };

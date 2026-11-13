@@ -136,6 +136,31 @@
     </footer>
   </div>
 
-  <script type="module" src="app.js?t=1"></script>
+  <!-- Pre-game setup modal -->
+  <div class="modal-overlay" id="setup-modal" hidden>
+    <div class="modal">
+      <h2>🎲 Game Setup</h2>
+
+      <div class="modal-section">
+        <label for="setup-api-key">Eevo API Key</label>
+        <input type="password" id="setup-api-key" placeholder="Enter your Eevo API key" autocomplete="off">
+      </div>
+
+      <div class="modal-section">
+        <span class="modal-section-title">Relics</span>
+        <p class="modal-hint">Turn relics on or off for this game. They apply to both players.</p>
+        <div class="relic-options" id="relic-options">
+          <!-- Relic toggles rendered by JS -->
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn primary" id="setup-start">New game</button>
+        <button class="btn secondary" id="setup-close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js?t=3"></script>
 </body>
 </html>

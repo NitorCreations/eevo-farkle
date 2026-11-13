@@ -2,8 +2,8 @@
  * Farkle UI and Game Flow
  */
 
-import { FarkleGame, findAllScoringOptions, findScoringCombinations, WINNING_SCORE, ACTIVE_RELICS, MOMENTUM_INCREMENT } from './game.js';
-import * as eevo from './eevo.js';
+import { FarkleGame, findAllScoringOptions, findScoringCombinations, WINNING_SCORE, ACTIVE_RELICS, MOMENTUM_INCREMENT } from './game.js?v=3';
+import * as eevo from './eevo.js?v=3';
 
 // DOM Elements
 const elements = {
@@ -25,6 +25,11 @@ const elements = {
   hotHandProgress: document.getElementById('hot-hand-progress'),
   rawRequestCount: document.getElementById('raw-request-count'),
   rawRequestContent: document.getElementById('raw-request-content'),
+  setupModal: document.getElementById('setup-modal'),
+  setupApiKey: document.getElementById('setup-api-key'),
+  relicOptions: document.getElementById('relic-options'),
+  setupStart: document.getElementById('setup-start'),
+  setupClose: document.getElementById('setup-close'),
 };
 
 // Game instance
@@ -41,12 +46,115 @@ function init() {
   // Event listeners
   elements.btnRoll.addEventListener('click', handleRoll);
   elements.btnBank.addEventListener('click', handleBank);
-  elements.btnNewGame.addEventListener('click', handleNewGame);
+  elements.btnNewGame.addEventListener('click', openSetupModal);
   elements.apiKeyInput.addEventListener('input', handleKeyInput);
+  elements.setupStart.addEventListener('click', startGameFromSetup);
+  elements.setupClose.addEventListener('click', closeSetupModal);
   
   // Initial UI
   updateUI();
-  logDecision('system', 'Game ready. Click "New Game" to start!');
+  logDecision('system', 'Welcome! Set up your game to start.');
+  
+  // Render the relic toggle options in the modal
+  renderRelicOptions();
+  
+  // Show the setup modal on first access
+  openSetupModal();
+}
+
+/**
+ * Is the game currently in progress (points banked or a turn started/rolling)?
+ */
+function gameInProgress() {
+  return game.playerScore > 0 || game.aiScore > 0 || game.turnScore > 0 || game.currentDice.length > 0;
+}
+
+/**
+ * Open the pre-game setup modal. Pre-fills the API key if one is already set.
+ */
+function openSetupModal() {
+  // Pre-fill the API key field with the current header value if present
+  elements.setupApiKey.value = elements.apiKeyInput.value.trim();
+  renderRelicOptions();
+  elements.setupModal.hidden = false;
+  // If starting fresh with no key, focus the key field
+  if (!elements.apiKeyInput.value) {
+    elements.setupApiKey.focus();
+  }
+}
+
+/**
+ * Close the pre-game setup modal without starting.
+ */
+function closeSetupModal() {
+  elements.setupModal.hidden = true;
+}
+
+/**
+ * Render the relic checkboxes in the modal based on ACTIVE_RELICS.
+ */
+function renderRelicOptions() {
+  if (!elements.relicOptions) return;
+  const relicCards = document.querySelectorAll('.relic-card');
+  // Determine currently-selected relics: prefer this game's setting, else all on
+  const enabled = game.enabledRelics ? new Set(game.enabledRelics) : new Set(Object.keys(ACTIVE_RELICS));
+  
+  elements.relicOptions.innerHTML = Object.values(ACTIVE_RELICS).map(r => `
+    <label class="relic-option ${enabled.has(r.id) ? '' : 'off'}" id="relic-opt-${r.id}">
+      <input type="checkbox" data-relic-id="${r.id}" ${enabled.has(r.id) ? 'checked' : ''}>
+      <span class="relic-emoji">${r.emoji}</span>
+      <div>
+        <div class="relic-opt-name">${r.name}</div>
+        <div class="relic-opt-desc">${escapeHtml(r.description)}</div>
+      </div>
+    </label>
+  `).join('');
+  
+  // Re-render the visual 'off' state when a checkbox is toggled
+  elements.relicOptions.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const label = cb.closest('.relic-option');
+      if (label) label.classList.toggle('off', !cb.checked);
+    });
+  });
+}
+
+/**
+ * Start a new game using the setup modal's selections.
+ */
+function startGameFromSetup() {
+  // Apply the API key from the modal to the header field + module
+  const key = elements.setupApiKey.value.trim();
+  elements.apiKeyInput.value = key;
+  eevo.setApiKey(key);
+  
+  // Collect the selected relics
+  const enabledRelics = [];
+  elements.relicOptions.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    if (cb.checked) enabledRelics.push(cb.dataset.relicId);
+  });
+  // If none selected, default to all (or allow none). We'll allow none.
+  game.setEnabledRelics(enabledRelics.length ? enabledRelics : []);
+  
+  // Close modal and start the game
+  elements.setupModal.hidden = true;
+  startNewGame();
+}
+
+/**
+ * Actually reset and start a new game with the current setup.
+ */
+function startNewGame() {
+  game.reset();
+  prevMomentum = { player: null, ai: null };
+  elements.decisionLog.innerHTML = '';
+  elements.insightContent.innerHTML = '<p class="muted">Eevo decision reasoning will appear here after the AI takes its turn.</p>';
+  updateUI();
+  setStatus('Your turn! Roll the dice.');
+  
+  const activeCount = game.enabledRelics.size;
+  const relicNote = activeCount ? ` (relics: ${[...game.enabledRelics].map(id => ACTIVE_RELICS[id]?.name || id).join(', ')})` : ' (no relics)';
+  logDecision('system', `New game started.${relicNote}`);
 }
 
 /**
@@ -54,19 +162,6 @@ function init() {
  */
 function handleKeyInput() {
   eevo.setApiKey(elements.apiKeyInput.value.trim());
-}
-
-/**
- * Start a new game
- */
-function handleNewGame() {
-  game.reset();
-  prevMomentum = { player: null, ai: null };
-  elements.decisionLog.innerHTML = '';
-  elements.insightContent.innerHTML = '<p class="muted">Eevo decision reasoning will appear here after the AI takes its turn.</p>';
-  updateUI();
-  setStatus('Your turn! Roll the dice.');
-  logDecision('system', 'New game started. First to 10,000 wins!');
 }
 
 /**

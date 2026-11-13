@@ -274,6 +274,23 @@ export class FarkleGame {
     this.lastHotHandBonus = 0;
     // Score accumulated since the last hot hand (or turn start)
     this.segmentScore = 0;
+    // Which relics are active for this game (default: all on / from setEnabledRelics)
+    this.enabledRelics = this._pendingRelics ? new Set(this._pendingRelics) : new Set(Object.keys(ACTIVE_RELICS));
+    this._pendingRelics = null;
+  }
+  
+  /**
+   * Set which relics are enabled for this game (before calling reset).
+   */
+  setEnabledRelics(ids) {
+    this._pendingRelics = new Set(ids || Object.keys(ACTIVE_RELICS));
+  }
+  
+  /**
+   * Whether a relic is active for the current game.
+   */
+  isRelicEnabled(id) {
+    return this.enabledRelics.has(id);
   }
   
   /**
@@ -281,6 +298,7 @@ export class FarkleGame {
    * streak 0 → 1.0, streak 1 → 1.10, streak 2 → 1.20, ...
    */
   momentumMultiplier(player) {
+    if (!this.isRelicEnabled('momentum')) return 1;
     const streak = player === 'player' ? this.playerStreak : this.aiStreak;
     return 1 + streak * MOMENTUM_INCREMENT;
   }
@@ -342,12 +360,12 @@ export class FarkleGame {
     
     // Trigger: all 6 dice scored (hot dice)
     if (remaining === 0) {
-      // Hot Hand relic: double the score accumulated since the last hot hand
-      // (i.e. the current "segment"), not the whole turn.
-      // segmentScore already includes this roll's score; add 1x more to make it 2x.
-      const hotHandBonus = this.segmentScore * 1;
-      this.turnScore += hotHandBonus;
-      this.hotHandCount++;
+      // Hot Hand relic (if enabled): double the score accumulated since the
+      // last hot hand (i.e. the current "segment"), not the whole turn.
+      const hotHandEnabled = this.isRelicEnabled('hotHand');
+      const hotHandBonus = hotHandEnabled ? this.segmentScore * 1 : 0;
+      if (hotHandEnabled) this.turnScore += hotHandBonus;
+      this.hotHandCount = hotHandEnabled ? this.hotHandCount + 1 : this.hotHandCount;
       this.segmentScore = 0; // reset for the next segment (fresh 6-dice roll)
       this.diceToRoll = 6;
       this.scoredThisTurn = 0;
@@ -441,6 +459,8 @@ export class FarkleGame {
       hotHandCount: this.hotHandCount,
       lastHotHandBonus: this.lastHotHandBonus,
       segmentScore: this.segmentScore,
+      // Which relics are enabled for this game
+      enabledRelics: [...this.enabledRelics],
     };
   }
 }
