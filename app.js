@@ -97,9 +97,8 @@ function closeSetupModal() {
  */
 function renderRelicOptions() {
   if (!elements.relicOptions) return;
-  const relicCards = document.querySelectorAll('.relic-card');
-  // Determine currently-selected relics: prefer this game's setting, else all on
-  const enabled = game.enabledRelics ? new Set(game.enabledRelics) : new Set(Object.keys(ACTIVE_RELICS));
+  // Default all relics to "Off" in the modal. The user opts in per game.
+  const enabled = new Set();
   
   elements.relicOptions.innerHTML = Object.values(ACTIVE_RELICS).map(r => `
     <label class="relic-option ${enabled.has(r.id) ? '' : 'off'}" id="relic-opt-${r.id}">
